@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs", "timeout": 15 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "mcp__memory__.*",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.mjs", "timeout": 3 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-bash.mjs", "timeout": 10 }] },
+      { "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-edit.mjs", "timeout": 5 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/stop.mjs", "timeout": 10 }] }
+    ]
+  }
+}

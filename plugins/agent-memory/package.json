@@ -1,0 +1,31 @@
+{
+  "name": "weft-plugin",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "dist/mcp/server.js",
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ignore": "^7.0.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "fastify": "^4.28.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "esbuild": "^0.25.0"
+  },
+  "description": "Claude Code plugin for Weft \u2014 shared project memory across a team's sessions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rajanbharti/weft-plugin.git"
+  }
+}

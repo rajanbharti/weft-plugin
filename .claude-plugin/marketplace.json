@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "weft",
+  "description": "Shared project memory for Claude Code — your team's decisions, gotchas and in-flight work, primed into every session.",
+  "owner": {
+    "name": "Rajan Bharti"
+  },
+  "plugins": [
+    {
+      "name": "agent-memory",
+      "displayName": "Weft — project memory",
+      "description": "Primes each Claude Code session with what your team already knows, and captures new decisions from commits and file edits for review. Talks to a Weft server you host.",
+      "source": "./plugins/agent-memory",
+      "category": "productivity",
+      "version": "0.1.0",
+      "author": {
+        "name": "Rajan Bharti"
+      },
+      "homepage": "https://github.com/rajanbharti/weft-plugin"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "agent-memory",
+  "version": "0.1.0",
+  "description": "Shared project memory for Claude Code sessions. Pair with @agent-memory/service.",
+  "author": { "name": "agent-memory team" },
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json",
+  "userConfig": {
+    "defaultServer": {
+      "type": "string",
+      "description": "Default memory service URL (overridden per-repo by /memory-link).",
+      "default": "http://localhost:3000"
+    }
+  }
+}

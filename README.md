@@ -1,0 +1,78 @@
+# Weft — project memory for Claude Code
+
+Your team's decisions, gotchas and in-flight work, primed into every Claude Code
+session and captured back from the work you actually do.
+
+This repository is a **Claude Code plugin marketplace**. The plugin is a client:
+it talks to a Weft server that you host, so nothing leaves your infrastructure.
+
+## Install
+
+```
+/plugin marketplace add rajanbharti/weft-plugin
+/plugin install agent-memory@weft
+```
+
+Claude Code asks once for a default server — the address of your Weft
+deployment. You can point individual repositories elsewhere later.
+
+## Connect a repository
+
+Get the project id and token from your Weft dashboard, then inside Claude Code:
+
+```
+/memory-link <project-id> <token>
+```
+
+Everyone on a project links with the same token. Linking writes
+`.claude/memory-config.json` and `.projectmemoryignore` into the repo — commit
+both. Your token is stored outside the repo and is never committed.
+
+Start a fresh session afterwards: priming runs at session start.
+
+## What it does
+
+**Primes.** Every session opens with the entries your team has approved —
+pinned decisions first, then whatever is most relevant.
+
+**Captures.** Git commits and file edits become candidate entries. Nothing is
+uploaded silently: candidates are buffered locally and only leave your machine
+when you run `/memory-review` and approve them.
+
+**Retrieves.** `/memory-search` asks the shared memory a question in your own
+words; matches are semantic, so wording need not line up.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `/memory-link` | Connect this repo to a project |
+| `/memory-unlink` | Disconnect it |
+| `/memory-search` | Ask the shared memory a question |
+| `/memory-recent` | What the team learned lately |
+| `/memory-pin` | Keep an entry in every session's priming |
+| `/memory-write` | Record something deliberately |
+| `/memory-review` | Walk the capture queue and decide what to keep |
+
+## What never leaves your machine
+
+Paths matching `.projectmemoryignore` (same syntax as `.gitignore`) are dropped
+before a capture is created, and content is scanned for secret-shaped strings
+and redacted. The server it talks to must be HTTPS unless it is on localhost.
+
+## Development
+
+```
+npm install
+npm test
+npm run bundle   # regenerate the committed entrypoints
+```
+
+Claude Code never runs an install step for a plugin, so `hooks/`, `commands/`
+and `mcp-server/` are committed as self-contained bundles with dependencies
+inlined. Re-run `npm run bundle` after changing anything under `src/` — the
+bundles are what actually ship.
+
+## Licence
+
+MIT
