@@ -1,8 +1,10 @@
 {
   "name": "agent-memory",
   "version": "0.1.0",
-  "description": "Shared project memory for Claude Code sessions. Pair with @agent-memory/service.",
-  "author": { "name": "agent-memory team" },
+  "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Requires a Weft server you host.",
+  "author": {
+    "name": "Rajan Bharti"
+  },
   "license": "MIT",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
@@ -10,6 +12,7 @@
   "userConfig": {
     "defaultServer": {
       "type": "string",
+      "title": "Weft server URL",
       "description": "Default memory service URL (overridden per-repo by /memory-link).",
       "default": "http://localhost:3000"
     }
