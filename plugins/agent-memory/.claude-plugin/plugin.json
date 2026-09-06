@@ -7,7 +7,6 @@
   },
   "license": "MIT",
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json",
   "userConfig": {
     "defaultServer": {
