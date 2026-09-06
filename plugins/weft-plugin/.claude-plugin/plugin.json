@@ -1,5 +1,5 @@
 {
-  "name": "agent-memory",
+  "name": "weft-plugin",
   "version": "0.1.0",
   "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Requires a Weft server you host.",
   "author": {
@@ -12,8 +12,8 @@
     "defaultServer": {
       "type": "string",
       "title": "Weft server URL",
-      "description": "Default memory service URL (overridden per-repo by /memory-link).",
-      "default": "http://localhost:3000"
+      "description": "Weft server this plugin talks to. Override per repository with /memory-link.",
+      "default": "https://service-production-a3ce.up.railway.app"
     }
   }
 }

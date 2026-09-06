@@ -10,11 +10,12 @@ it talks to a Weft server that you host, so nothing leaves your infrastructure.
 
 ```
 /plugin marketplace add rajanbharti/weft-plugin
-/plugin install agent-memory@weft
+/plugin install weft-plugin@weft
 ```
 
-Claude Code asks once for a default server — the address of your Weft
-deployment. You can point individual repositories elsewhere later.
+Claude Code asks once for a default server. It is pre-filled with the hosted
+Weft instance; point it at your own deployment if you run one, and individual
+repositories can override it later with `/memory-link`.
 
 ## Connect a repository
 
