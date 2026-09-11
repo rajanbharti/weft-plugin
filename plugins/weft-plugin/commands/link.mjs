@@ -20,7 +20,7 @@ var PluginError = class extends Error {
 };
 var TokenInvalidError = class extends PluginError {
   constructor() {
-    super("token_invalid", "Project token is invalid or has been rotated. Run /memory-link with a fresh token.");
+    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
   }
 };
 var NetworkError = class extends PluginError {
@@ -243,7 +243,7 @@ async function runLink(input) {
   const wroteStarter = writeStarterIgnoreIfAbsent(input.projectDir);
   return {
     ok: true,
-    message: `Linked ${input.projectId}.${wroteStarter ? " Wrote .projectmemoryignore with sensible defaults \u2014 review and commit it." : ""} Start a new Claude Code session to see primed project memory.`
+    message: `Linked ${input.projectId}.${wroteStarter ? " Wrote .projectmemoryignore with sensible defaults \u2014 review and commit it." : ""} Memory tools can use this link immediately. Start a new session only to refresh startup memory.`
   };
 }
 if (import.meta.url === `file://${process.argv[1]}`) {

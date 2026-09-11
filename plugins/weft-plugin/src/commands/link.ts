@@ -65,7 +65,7 @@ export async function runLink(input: LinkInput): Promise<LinkResult> {
   const wroteStarter = writeStarterIgnoreIfAbsent(input.projectDir);
   return {
     ok: true,
-    message: `Linked ${input.projectId}.${wroteStarter ? " Wrote .projectmemoryignore with sensible defaults — review and commit it." : ""} Start a new Claude Code session to see primed project memory.`,
+    message: `Linked ${input.projectId}.${wroteStarter ? " Wrote .projectmemoryignore with sensible defaults — review and commit it." : ""} Memory tools can use this link immediately. Start a new session only to refresh startup memory.`,
   };
 }
 

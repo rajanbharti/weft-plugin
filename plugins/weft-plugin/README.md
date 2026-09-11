@@ -12,8 +12,8 @@ In Claude Code:
 /plugin install weft-plugin@weft
 ```
 
-For a downloaded release, extract the archive and add its `weft-plugin-0.2.0`
-directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.2.0`.
+For a downloaded release, extract the archive and add its `weft-plugin-0.2.1`
+directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.2.1`.
 Then install `weft-plugin@weft`.
 
 ## Connect a project
@@ -55,3 +55,8 @@ regenerate them after source changes. Tests use a local mock API.
 Plugin data uses `CLAUDE_PLUGIN_DATA` when provided. Otherwise it persists under
 `~/.claude/plugins/data/weft-plugin` (or the same subdirectory of
 `CLAUDE_CONFIG_DIR`). This works across plugin updates without extra setup.
+
+Memory tools reload the repository link on every call, so linking does not require
+a restart. The MCP process inherits the repository working directory when
+`CLAUDE_PROJECT_DIR` is absent; it must not run from the plugin cache. Restart
+Claude Code once after installing updates to load the new MCP configuration.

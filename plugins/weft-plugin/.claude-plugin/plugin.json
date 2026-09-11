@@ -1,6 +1,6 @@
 {
   "name": "weft-plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Shared project memory for Claude Code. Automatically uploads session activity to hosted Weft for platform review and retrieves approved team memory.",
   "author": {
     "name": "Rajan Bharti"

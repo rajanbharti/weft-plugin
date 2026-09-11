@@ -12,11 +12,12 @@ export interface Harness {
   stop: () => Promise<void>;
   projectDir: string;
   pluginDataDir: string;
+  serverUrl: string;
 }
 
 const serverPath = fileURLToPath(new URL("../../../../mcp-server/server.mjs", import.meta.url));
 
-export async function makeHarness(opts: { fixtures?: MockFixtures; linked?: boolean; tokenOverride?: string }): Promise<Harness> {
+export async function makeHarness(opts: { fixtures?: MockFixtures; linked?: boolean; tokenOverride?: string; omitProjectEnv?: boolean }): Promise<Harness> {
   const projectDir = mkdtempSync(join(tmpdir(), "mcp-harness-repo-"));
   const pluginDataDir = mkdtempSync(join(tmpdir(), "mcp-harness-data-"));
   process.env.CLAUDE_PLUGIN_DATA = pluginDataDir;
@@ -30,9 +31,10 @@ export async function makeHarness(opts: { fixtures?: MockFixtures; linked?: bool
   const transport = new StdioClientTransport({
     command: "node",
     args: [serverPath],
+    cwd: projectDir,
     env: {
       ...process.env,
-      CLAUDE_PROJECT_DIR: projectDir,
+      CLAUDE_PROJECT_DIR: opts.omitProjectEnv ? "" : projectDir,
       CLAUDE_PLUGIN_DATA: pluginDataDir,
     },
   });
@@ -43,6 +45,7 @@ export async function makeHarness(opts: { fixtures?: MockFixtures; linked?: bool
     client,
     projectDir,
     pluginDataDir,
+    serverUrl: mock.url,
     async stop() {
       await client.close();
       await mock.stop();

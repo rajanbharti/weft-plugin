@@ -1000,7 +1000,7 @@ var PluginError = class extends Error {
 };
 var TokenInvalidError = class extends PluginError {
   constructor() {
-    super("token_invalid", "Project token is invalid or has been rotated. Run /memory-link with a fresh token.");
+    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
   }
 };
 var NetworkError = class extends PluginError {

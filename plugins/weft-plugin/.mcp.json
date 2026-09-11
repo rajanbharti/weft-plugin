@@ -2,8 +2,9 @@
   "mcpServers": {
     "memory": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.mjs"],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}"
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server/server.mjs"
+      ]
     }
   }
 }

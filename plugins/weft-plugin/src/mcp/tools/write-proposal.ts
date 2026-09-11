@@ -30,7 +30,7 @@ export function registerWriteProposalTool(
     },
     async (args: unknown, { client }: { client: MemoryApiClient; linked: LinkedProject }) => {
       const input = InputSchema.parse(args);
-      const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+      const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
       const identity = readGitIdentity(projectDir);
       if (!identity) {
         return {
