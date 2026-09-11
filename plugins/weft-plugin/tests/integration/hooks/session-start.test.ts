@@ -15,7 +15,8 @@ function runHook(
 ): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn("node", [hookScript], {
-      env: { ...env },
+      cwd: env.CLAUDE_PROJECT_DIR,
+      env: { ...env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory" },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";

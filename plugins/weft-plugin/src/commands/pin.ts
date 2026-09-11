@@ -25,7 +25,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.pin.invoked");
   const [, , entryId] = process.argv;
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   runPin({ projectDir, entryId }).then((r) => {
     log.info(r.ok ? "command.pin.ok" : "command.pin.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

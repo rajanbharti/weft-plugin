@@ -1,7 +1,8 @@
+import { repoRelativePath } from "./project-path.js";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join, relative, isAbsolute, basename } from "node:path";
+import { join, isAbsolute, basename } from "node:path";
 import { pluginDataDir } from "./data-dir.js";
 import { repoHash } from "./repo-hash.js";
 import { loadIgnoreMatcher } from "./ignore.js";
@@ -69,7 +70,7 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
   const matcher = loadIgnoreMatcher(projectDir);
   const paths = referencedPaths(event.tool_input);
   const excluded = paths.some((path) => {
-    const local = isAbsolute(path) ? relative(projectDir, path) : path;
+    const local = repoRelativePath(projectDir, path);
     return local === ".." || local.startsWith("../") || isAbsolute(local)
       || /(^|\/)(\.env[^/]*|secrets|credentials|\.ssh)(\/|$)/.test(local)
       || (local !== "" && matcher.isIgnored(local));

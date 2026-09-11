@@ -231,7 +231,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.recent.invoked");
   const limitArg = Number(process.argv[2]);
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   runRecent({ projectDir, limit: Number.isFinite(limitArg) ? limitArg : void 0 }).then((r) => {
     log.info(r.ok ? "command.recent.ok" : "command.recent.error", { error: r.error });
     if (r.ok) {

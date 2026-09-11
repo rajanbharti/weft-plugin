@@ -429,7 +429,7 @@ ${workingContent}
   return { approved, sentPending, dropped, quit, remaining: candidates.length - verdicts.size };
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   log.info("command.memory-review.invoked");
   runReview({ projectDir }).then(() => process.exit(0)).catch((e) => {
     log.error("command.memory-review.error", { error: e?.message ?? String(e) });

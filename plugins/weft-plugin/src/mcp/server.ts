@@ -15,7 +15,7 @@ const log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 
 const server = new Server(
-  { name: "agent-memory", version: "0.2.1" },
+  { name: "agent-memory", version: "0.2.2" },
   { capabilities: { tools: {} } },
 );
 
@@ -37,7 +37,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   log.info("mcp.tool.call", { tool: req.params.name });
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectDir = process.cwd();
   const linked = await loadLinkedProject(projectDir);
   if (!linked) {
     const out = {

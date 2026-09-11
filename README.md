@@ -88,7 +88,7 @@ bundles are what actually ship.
 
 To create a distributable ZIP and SHA-256 checksum after bundling and testing,
 run `python3 scripts/package-release.py` from the repository root. Extract the
-ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.2.1`
+ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.2.2`
 in Claude Code and install `weft-plugin@weft`. GitHub installs receive this
 version only after these changes are published to the marketplace repository.
 
@@ -118,6 +118,7 @@ Hooks capture what Claude Code exposes, not external editor activity or the full
 transcript. Historical local buffers remain available through `/memory-review`.
 
 Memory tools reload the repository link on every call, so linking does not require
-a restart. The MCP process inherits the repository working directory when
-`CLAUDE_PROJECT_DIR` is absent; it must not run from the plugin cache. Restart
+a restart. Commands, hooks, and MCP tools use only `process.cwd()` to locate the repository.
+`CLAUDE_PROJECT_DIR` and hook payload paths are ignored. Launch Claude Code from
+the repository you linked; the plugin cache is never the working directory. Restart
 Claude Code once after installing updates to load the new MCP configuration.

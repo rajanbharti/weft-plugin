@@ -34,7 +34,7 @@ export async function makeHarness(opts: { fixtures?: MockFixtures; linked?: bool
     cwd: projectDir,
     env: {
       ...process.env,
-      CLAUDE_PROJECT_DIR: opts.omitProjectEnv ? "" : projectDir,
+      CLAUDE_PROJECT_DIR: opts.omitProjectEnv ? "" : "/incorrect-env-directory",
       CLAUDE_PLUGIN_DATA: pluginDataDir,
     },
   });

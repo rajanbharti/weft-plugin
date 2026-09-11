@@ -1,6 +1,6 @@
+import { repoRelativePath } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { readFileSync } from "node:fs";
-import { isAbsolute, relative } from "node:path";
 import { loadLinkedProject } from "../lib/config.js";
 import { repoHash } from "../lib/repo-hash.js";
 import {
@@ -34,7 +34,7 @@ function topDir(p: string): string {
 }
 
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR;
+  const projectDir = process.cwd();
   if (!projectDir) { process.exit(0); }
 
   const linked = await loadLinkedProject(projectDir);
@@ -64,7 +64,7 @@ async function main() {
   // Roll up. Buffers written before paths were normalised still hold absolute
   // ones, and the ignore matcher throws on those — normalise defensively.
   const paths = Array.from(
-    new Set(edits.map((e) => (isAbsolute(e.path) ? relative(projectDir, e.path) : e.path))),
+    new Set(edits.map((e) => (repoRelativePath(projectDir, e.path)))),
   );
   const dirCounts = new Map<string, number>();
   for (const p of paths) {

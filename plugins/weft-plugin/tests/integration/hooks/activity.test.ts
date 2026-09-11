@@ -16,12 +16,13 @@ const script = fileURLToPath(new URL("../../../hooks/activity.mjs", import.meta.
 function run(event: Record<string, unknown>, project = dir) {
   return new Promise<number | null>((resolve, reject) => {
     const child = spawn(process.execPath, [script], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: "", CLAUDE_PLUGIN_DATA: data },
+      cwd: project,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: data },
       stdio: ["pipe", "ignore", "ignore"],
     });
     child.on("error", reject);
     child.on("close", resolve);
-    child.stdin.end(JSON.stringify({ cwd: project, session_id: "session-test", ...event }));
+    child.stdin.end(JSON.stringify({ cwd: "/incorrect-payload-directory", session_id: "session-test", ...event }));
   });
 }
 function queued() {

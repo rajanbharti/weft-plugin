@@ -666,13 +666,13 @@ var require_ignore = __commonJS({
         const rules = this._rules;
         const { length } = rules;
         const shortcut = this._basenameCount * 2 >= length;
-        const basename2 = shortcut ? basenameOf(path) : path;
+        const basename3 = shortcut ? basenameOf(path) : path;
         for (let index = 0; index < length; index++) {
           const rule = rules[index];
           const { negative } = rule;
           const skip = unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored;
           if (!skip && rule[mode].test(
-            shortcut && rule._basenameOnly ? basename2 : path
+            shortcut && rule._basenameOnly ? basename3 : path
           )) {
             ignored = !negative;
             unignored = negative;
@@ -868,19 +868,34 @@ async function loadLinkedProject(projectDir) {
   };
 }
 
+// src/lib/project-path.ts
+import { realpathSync } from "node:fs";
+import { dirname, basename, join as join3, relative, isAbsolute } from "node:path";
+function canonicalPath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join3(canonicalPath(parent), basename(path));
+  }
+}
+function repoRelativePath(projectDir, path) {
+  return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
+}
+
 // src/lib/activity.ts
 import { createHash as createHash2, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join4, relative, isAbsolute, basename } from "node:path";
+import { join as join5, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 
 // src/lib/repo-hash.ts
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { realpathSync as realpathSync2 } from "node:fs";
 function repoHash(absolutePath) {
   const real = (() => {
     try {
-      return realpathSync(absolutePath);
+      return realpathSync2(absolutePath);
     } catch {
       return absolutePath;
     }
@@ -891,7 +906,7 @@ function repoHash(absolutePath) {
 // src/lib/ignore.ts
 var import_ignore = __toESM(require_ignore(), 1);
 import { readFileSync as readFileSync2, existsSync as existsSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 var PROJECT_FILE = [".projectmemoryignore"];
 var DEV_FILE = [".claude", "memoryignore"];
 function readPatterns(filePath) {
@@ -910,8 +925,8 @@ function expandNegations(patterns) {
   return expanded;
 }
 function loadIgnoreMatcher(repoDir) {
-  const projectPatterns = readPatterns(join3(repoDir, ...PROJECT_FILE));
-  const devPatterns = readPatterns(join3(repoDir, ...DEV_FILE));
+  const projectPatterns = readPatterns(join4(repoDir, ...PROJECT_FILE));
+  const devPatterns = readPatterns(join4(repoDir, ...DEV_FILE));
   const patterns = [...projectPatterns, ...devPatterns];
   const ig = (0, import_ignore.default)().add(expandNegations(patterns));
   return {
@@ -1109,7 +1124,7 @@ var MemoryApiClient = class {
 function activityQueueDir(projectDir, linked) {
   const target = createHash2("sha256").update(`${linked.server}
 ${linked.projectId}`).digest("hex").slice(0, 16);
-  return join4(pluginDataDir(), "outbox", target, repoHash(projectDir));
+  return join5(pluginDataDir(), "outbox", target, repoHash(projectDir));
 }
 function identity(projectDir) {
   const get = (key) => {
@@ -1125,7 +1140,7 @@ function identity(projectDir) {
 function instanceId() {
   const dir = pluginDataDir();
   mkdirSync2(dir, { recursive: true, mode: 448 });
-  const file = join4(dir, "instance-id");
+  const file = join5(dir, "instance-id");
   try {
     writeFileSync2(file, randomUUID(), { flag: "wx", mode: 384 });
   } catch (e) {
@@ -1153,8 +1168,8 @@ function enqueueActivity(projectDir, linked, event) {
   const matcher = loadIgnoreMatcher(projectDir);
   const paths = referencedPaths(event.tool_input);
   const excluded = paths.some((path) => {
-    const local = isAbsolute(path) ? relative(projectDir, path) : path;
-    return local === ".." || local.startsWith("../") || isAbsolute(local) || /(^|\/)(\.env[^/]*|secrets|credentials|\.ssh)(\/|$)/.test(local) || local !== "" && matcher.isIgnored(local);
+    const local = repoRelativePath(projectDir, path);
+    return local === ".." || local.startsWith("../") || isAbsolute2(local) || /(^|\/)(\.env[^/]*|secrets|credentials|\.ssh)(\/|$)/.test(local) || local !== "" && matcher.isIgnored(local);
   });
   const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "");
   const payload = excluded || memoryTool ? { omitted: excluded ? "excluded file payload" : "memory tool payload" } : safeValue({
@@ -1171,7 +1186,7 @@ function enqueueActivity(projectDir, linked, event) {
     timestamp,
     session: event.session_id ?? "unknown",
     repository: repoHash(projectDir),
-    repositoryName: basename(projectDir),
+    repositoryName: basename2(projectDir),
     event: label,
     tool: event.tool_name,
     toolUseId: event.tool_use_id,
@@ -1201,7 +1216,7 @@ function enqueueActivity(projectDir, linked, event) {
   };
   const dir = activityQueueDir(projectDir, linked);
   mkdirSync2(dir, { recursive: true, mode: 448 });
-  const file = join4(dir, `${Date.now()}-${eventId}.json`);
+  const file = join5(dir, `${Date.now()}-${eventId}.json`);
   writeFileSync2(file + ".tmp", JSON.stringify(body), { mode: 384 });
   renameSync(file + ".tmp", file);
   return eventId;
@@ -1209,7 +1224,7 @@ function enqueueActivity(projectDir, linked, event) {
 async function flushActivity(projectDir, linked, budgetMs = 2e4) {
   const dir = activityQueueDir(projectDir, linked);
   if (!existsSync3(dir)) return 0;
-  const lock = join4(dir, ".upload-lock");
+  const lock = join5(dir, ".upload-lock");
   try {
     if (existsSync3(lock) && Date.now() - statSync(lock).mtimeMs > 12e4) unlinkSync(lock);
     const fd = openSync(lock, "wx", 384);
@@ -1224,10 +1239,10 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
-      const body = JSON.parse(readFileSync3(join4(dir, file), "utf8"));
+      const body = JSON.parse(readFileSync3(join5(dir, file), "utf8"));
       const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(8e3, remaining) });
       await client.createEntry(body);
-      unlinkSync(join4(dir, file));
+      unlinkSync(join5(dir, file));
       sent++;
     }
   } finally {
@@ -1238,7 +1253,7 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync3, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -1250,7 +1265,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join5(logsDir, e);
+    const full = join6(logsDir, e);
     try {
       if (statSync2(full).mtimeMs < cutoff) unlinkSync2(full);
     } catch {
@@ -1258,7 +1273,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join5(baseDir, "logs");
+  const logsDir = join6(baseDir, "logs");
   try {
     mkdirSync3(logsDir, { recursive: true });
   } catch {
@@ -1268,7 +1283,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join5(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join6(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -1283,7 +1298,7 @@ function createLogger(baseDir) {
 // src/hooks/activity.ts
 async function main() {
   const event = JSON.parse(readFileSync4(0, "utf8"));
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd;
+  const projectDir = process.cwd();
   if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);
   if (!linked) return;

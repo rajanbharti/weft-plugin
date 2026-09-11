@@ -233,12 +233,7 @@ async function syncIgnoreRulesIfChanged(linked, projectDir) {
   }
 }
 async function main() {
-  let event = {};
-  try {
-    event = JSON.parse(readFileSync2(0, "utf8"));
-  } catch {
-  }
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd;
+  const projectDir = process.cwd();
   const log = createLogger(pluginDataDir());
   log.info("hook.session-start.invoked", { projectDir });
   if (!projectDir) {

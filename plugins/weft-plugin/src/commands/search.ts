@@ -35,7 +35,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.search.invoked");
   const query = process.argv.slice(2).join(" ");
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   runSearch({ projectDir, query }).then((r) => {
     log.info(r.ok ? "command.search.ok" : "command.search.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

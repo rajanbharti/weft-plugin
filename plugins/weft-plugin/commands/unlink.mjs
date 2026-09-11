@@ -107,7 +107,7 @@ async function runUnlink(input) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.unlink.invoked");
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   runUnlink({ projectDir }).then((r) => {
     log.info(r.ok ? "command.unlink.ok" : "command.unlink.error", { error: r.error });
     if (r.ok) {

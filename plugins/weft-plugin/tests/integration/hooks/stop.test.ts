@@ -33,7 +33,8 @@ afterEach(async () => {
 
 function invoke(input: object) {
   return spawnSync("node", [hookScript], {
-    env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, CLAUDE_PLUGIN_DATA: pluginDataDir },
+    cwd: projectDir,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: pluginDataDir },
     input: JSON.stringify(input),
     encoding: "utf8",
   });

@@ -18663,7 +18663,7 @@ function registerWriteProposalTool(reg) {
     },
     async (args, { client }) => {
       const input = InputSchema3.parse(args);
-      const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+      const projectDir = process.cwd();
       const identity = readGitIdentity(projectDir);
       if (!identity) {
         return {
@@ -18715,7 +18715,7 @@ function registerPinTool(reg) {
 var log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 var server = new Server(
-  { name: "agent-memory", version: "0.2.1" },
+  { name: "agent-memory", version: "0.2.2" },
   { capabilities: { tools: {} } }
 );
 var tools = {};
@@ -18731,7 +18731,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   log.info("mcp.tool.call", { tool: req.params.name });
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectDir = process.cwd();
   const linked = await loadLinkedProject(projectDir);
   if (!linked) {
     const out = {

@@ -41,7 +41,8 @@ afterEach(async () => {
 
 function invoke(input: object) {
   return spawnSync("node", [hookScript], {
-    env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, CLAUDE_PLUGIN_DATA: pluginDataDir },
+    cwd: projectDir,
+    env: { ...process.env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: pluginDataDir },
     input: JSON.stringify(input),
     encoding: "utf8",
   });
@@ -120,7 +121,8 @@ describe("post-tool-bash hook", () => {
     try {
       execSync("git init -q && git config user.email a@e.com && git commit --allow-empty -q -m 'x'", { cwd: blank, shell: "/bin/bash" });
       const r = spawnSync("node", [hookScript], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: blank, CLAUDE_PLUGIN_DATA: pluginDataDir },
+        cwd: blank,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: pluginDataDir },
         input: JSON.stringify({
           hook_event_name: "PostToolUse",
           tool_name: "Bash",

@@ -33,9 +33,7 @@ async function syncIgnoreRulesIfChanged(linked: LinkedProject, projectDir: strin
 }
 
 async function main() {
-  let event: { cwd?: string } = {};
-  try { event = JSON.parse(readFileSync(0, "utf8")); } catch { /* missing hook input */ }
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd;
+  const projectDir = process.cwd();
   const log = createLogger(pluginDataDir());
   log.info("hook.session-start.invoked", { projectDir });
 

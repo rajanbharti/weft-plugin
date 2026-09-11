@@ -1102,7 +1102,7 @@ function listChangedPaths(projectDir, logger) {
   }
 }
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR;
+  const projectDir = process.cwd();
   if (!projectDir) {
     process.exit(0);
   }

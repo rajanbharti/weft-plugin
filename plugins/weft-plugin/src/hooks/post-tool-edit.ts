@@ -1,6 +1,6 @@
+import { repoRelativePath } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { readFileSync } from "node:fs";
-import { isAbsolute, relative } from "node:path";
 import { loadLinkedProject } from "../lib/config.js";
 import { repoHash } from "../lib/repo-hash.js";
 import { appendRecord, trimIfTooLarge } from "../lib/buffer.js";
@@ -32,7 +32,7 @@ function locDelta(newStr: string | undefined, oldStr: string | undefined): numbe
 }
 
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR;
+  const projectDir = process.cwd();
   if (!projectDir) { process.exit(0); }
 
   const linked = await loadLinkedProject(projectDir);
@@ -50,7 +50,7 @@ async function main() {
   // semantics) throws on anything that isn't repo-relative — and the Stop hook
   // feeds these paths straight to it. Normalise before buffering.
   const toRepoRelative = (p: string): string =>
-    isAbsolute(p) ? relative(projectDir, p) : p;
+    repoRelativePath(projectDir, p);
 
   const writes: { path: string; loc_delta: number }[] = [];
 

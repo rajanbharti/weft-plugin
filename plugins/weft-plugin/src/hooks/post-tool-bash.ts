@@ -55,7 +55,7 @@ function listChangedPaths(projectDir: string, logger: ReturnType<typeof createLo
 }
 
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR;
+  const projectDir = process.cwd();
   if (!projectDir) { process.exit(0); }
 
   const linked = await loadLinkedProject(projectDir);

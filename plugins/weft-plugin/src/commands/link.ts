@@ -74,7 +74,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.link.invoked");
   const [, , projectId, token] = process.argv;
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   const defaultServer = "https://service-production-a3ce.up.railway.app";
   runLink({ projectId, token, projectDir, defaultServer }).then((r) => {
     log.info(r.ok ? "command.link.ok" : "command.link.error", { error: r.error });

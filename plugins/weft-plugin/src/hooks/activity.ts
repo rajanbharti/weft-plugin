@@ -6,7 +6,7 @@ import { pluginDataDir } from "../lib/data-dir.js";
 
 async function main() {
   const event = JSON.parse(readFileSync(0, "utf8")) as ActivityEvent;
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd;
+  const projectDir = process.cwd();
   if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);
   if (!linked) return;

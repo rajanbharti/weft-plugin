@@ -40,7 +40,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.write.invoked");
   const content = process.argv.slice(2).join(" ");
-  const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  const projectDir = process.cwd();
   runWrite({ projectDir, content }).then((r) => {
     log.info(r.ok ? "command.write.ok" : "command.write.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

@@ -22,8 +22,9 @@ it.each(["explicit", "fallback"])("the shipped link command uses hosted Weft wit
     `);
     const result = await new Promise<{ code: number | null; error: string }>((resolve, reject) => {
       const child = spawn(process.execPath, ["--import", preload, script, "proj_test", "pmt_test"], {
+        cwd: dir,
         env: { ...process.env, AGENT_MEMORY_DEFAULT_SERVER: "", CLAUDE_PLUGIN_OPTION_DEFAULTSERVER: mock.url,
-          CLAUDE_PROJECT_DIR: dir, CLAUDE_PLUGIN_DATA: storage === "explicit" ? join(dir, "private") : undefined, CLAUDE_CONFIG_DIR: join(dir, "claude-config") },
+          CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: storage === "explicit" ? join(dir, "private") : undefined, CLAUDE_CONFIG_DIR: join(dir, "claude-config") },
       });
       let error = "";
       child.stderr.on("data", (data) => { error += data; });
