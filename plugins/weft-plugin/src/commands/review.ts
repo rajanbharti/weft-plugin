@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +15,7 @@ import { MemoryApiClient } from "../lib/api-client.js";
 import { NotLinkedError, PluginError } from "../lib/errors.js";
 import { createLogger } from "../lib/logging.js";
 
-const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+const log = createLogger(pluginDataDir());
 
 export interface ReviewIO {
   write(s: string): void;

@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient, Entry } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
 import { NotLinkedError } from "../lib/errors.js";
@@ -31,7 +32,7 @@ function formatEntries(entries: Entry[]): string {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("command.search.invoked");
   const query = process.argv.slice(2).join(" ");
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();

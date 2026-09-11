@@ -1,6 +1,13 @@
+// src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join } from "node:path";
+function pluginDataDir() {
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
+}
+
 // src/commands/link.ts
 import { existsSync as existsSync2, writeFileSync as writeFileSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 
 // src/lib/errors.ts
 var PluginError = class extends Error {
@@ -120,18 +127,13 @@ var MemoryApiClient = class {
 
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
 function repoConfigFile(projectDir) {
-  return join(projectDir, ...REPO_CONFIG_PATH);
-}
-function pluginDataDir() {
-  const dir = process.env.CLAUDE_PLUGIN_DATA;
-  if (!dir) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
-  return dir;
+  return join2(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join(pluginDataDir(), "tokens.json");
+  return join2(pluginDataDir(), "tokens.json");
 }
 function readJson(path) {
   try {
@@ -158,7 +160,7 @@ async function saveToken(projectId, token) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync2, appendFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { join as join3 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -170,7 +172,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join2(logsDir, e);
+    const full = join3(logsDir, e);
     try {
       if (statSync(full).mtimeMs < cutoff) unlinkSync(full);
     } catch {
@@ -178,7 +180,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join2(baseDir, "logs");
+  const logsDir = join3(baseDir, "logs");
   try {
     mkdirSync2(logsDir, { recursive: true });
   } catch {
@@ -188,7 +190,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join2(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join3(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -213,7 +215,7 @@ credentials/**
 .ssh/**
 `;
 function writeStarterIgnoreIfAbsent(projectDir) {
-  const f = join3(projectDir, ".projectmemoryignore");
+  const f = join4(projectDir, ".projectmemoryignore");
   if (existsSync2(f)) return false;
   writeFileSync2(f, STARTER_IGNORE, "utf8");
   return true;
@@ -245,7 +247,7 @@ async function runLink(input) {
   };
 }
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("command.link.invoked");
   const [, , projectId, token] = process.argv;
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();

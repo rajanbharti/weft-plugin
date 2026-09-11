@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MemoryApiClient, assertAllowedServer } from "../lib/api-client.js";
@@ -70,7 +71,7 @@ export async function runLink(input: LinkInput): Promise<LinkResult> {
 
 // CLI entrypoint (invoked by skills/memory-link/SKILL.md)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("command.link.invoked");
   const [, , projectId, token] = process.argv;
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();

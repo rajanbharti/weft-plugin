@@ -1,3 +1,4 @@
+import { pluginDataDir } from "./data-dir.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 
@@ -25,11 +26,6 @@ function repoConfigFile(projectDir: string): string {
   return join(projectDir, ...REPO_CONFIG_PATH);
 }
 
-function pluginDataDir(): string {
-  const dir = process.env.CLAUDE_PLUGIN_DATA;
-  if (!dir) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
-  return dir;
-}
 
 function tokensFile(): string {
   return join(pluginDataDir(), "tokens.json");

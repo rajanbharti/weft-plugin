@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { existsSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MemoryApiClient, Entry } from "../lib/api-client.js";
@@ -5,8 +6,7 @@ import { loadLinkedProject, LinkedProject } from "../lib/config.js";
 import { createLogger } from "../lib/logging.js";
 
 function ignoreSyncStatePath(): string {
-  const d = process.env.CLAUDE_PLUGIN_DATA;
-  if (!d) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
+  const d = pluginDataDir();
   mkdirSync(d, { recursive: true });
   return join(d, "ignore-sync-state.json");
 }
@@ -34,7 +34,7 @@ async function syncIgnoreRulesIfChanged(linked: LinkedProject, projectDir: strin
 
 async function main() {
   const projectDir = process.env.CLAUDE_PROJECT_DIR;
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("hook.session-start.invoked", { projectDir });
 
   if (!projectDir) { process.exit(0); }

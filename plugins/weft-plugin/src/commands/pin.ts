@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
 import { NotLinkedError } from "../lib/errors.js";
@@ -21,7 +22,7 @@ export async function runPin(input: PinInput): Promise<PinResult> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("command.pin.invoked");
   const [, , entryId] = process.argv;
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();

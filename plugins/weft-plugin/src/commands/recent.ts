@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient, Entry } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
 import { NotLinkedError } from "../lib/errors.js";
@@ -35,7 +36,7 @@ function format(entries: Entry[]): string {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+  const log = createLogger(pluginDataDir());
   log.info("command.recent.invoked");
   const limitArg = Number(process.argv[2]);
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();

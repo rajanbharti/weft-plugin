@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { loadLinkedProject } from "../lib/config.js";
@@ -7,7 +8,7 @@ import { applyChain } from "../lib/redaction.js";
 import { loadIgnoreMatcher } from "../lib/ignore.js";
 import { createLogger } from "../lib/logging.js";
 
-const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+const log = createLogger(pluginDataDir());
 const TRIVIAL = new Set(["merge", "fix typo"]);
 
 interface HookInput {

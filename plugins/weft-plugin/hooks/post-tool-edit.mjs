@@ -1,22 +1,24 @@
+// src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join } from "node:path";
+function pluginDataDir() {
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
+}
+
 // src/hooks/post-tool-edit.ts
 import { readFileSync as readFileSync3 } from "node:fs";
 import { isAbsolute, relative } from "node:path";
 
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
-  return join(projectDir, ...REPO_CONFIG_PATH);
-}
-function pluginDataDir() {
-  const dir = process.env.CLAUDE_PLUGIN_DATA;
-  if (!dir) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
-  return dir;
+  return join2(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join(pluginDataDir(), "tokens.json");
+  return join2(pluginDataDir(), "tokens.json");
 }
 function readJson(path) {
   try {
@@ -65,18 +67,13 @@ import {
   existsSync as existsSync2,
   renameSync
 } from "node:fs";
-import { join as join2 } from "node:path";
-function pluginDataDir2() {
-  const d = process.env.CLAUDE_PLUGIN_DATA;
-  if (!d) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
-  return d;
-}
+import { join as join3 } from "node:path";
 function bufferPathFor(repoHash2) {
-  return join2(pluginDataDir2(), "buffers", `${repoHash2}.jsonl`);
+  return join3(pluginDataDir(), "buffers", `${repoHash2}.jsonl`);
 }
 async function appendRecord(repoHash2, record) {
   const path = bufferPathFor(repoHash2);
-  mkdirSync2(join2(pluginDataDir2(), "buffers"), { recursive: true });
+  mkdirSync2(join3(pluginDataDir(), "buffers"), { recursive: true });
   appendFileSync(path, JSON.stringify(record) + "\n", "utf8");
 }
 async function trimIfTooLarge(repoHash2, maxBytes) {
@@ -95,7 +92,7 @@ async function trimIfTooLarge(repoHash2, maxBytes) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync3, appendFileSync as appendFileSync2, readdirSync, statSync as statSync2, unlinkSync } from "node:fs";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -107,7 +104,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join3(logsDir, e);
+    const full = join4(logsDir, e);
     try {
       if (statSync2(full).mtimeMs < cutoff) unlinkSync(full);
     } catch {
@@ -115,7 +112,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join3(baseDir, "logs");
+  const logsDir = join4(baseDir, "logs");
   try {
     mkdirSync3(logsDir, { recursive: true });
   } catch {
@@ -125,7 +122,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync2(join3(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync2(join4(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -138,7 +135,7 @@ function createLogger(baseDir) {
 }
 
 // src/hooks/post-tool-edit.ts
-var log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+var log = createLogger(pluginDataDir());
 function readStdin() {
   try {
     return readFileSync3(0, "utf8");

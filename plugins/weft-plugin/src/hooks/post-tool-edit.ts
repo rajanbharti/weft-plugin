@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { readFileSync } from "node:fs";
 import { isAbsolute, relative } from "node:path";
 import { loadLinkedProject } from "../lib/config.js";
@@ -5,7 +6,7 @@ import { repoHash } from "../lib/repo-hash.js";
 import { appendRecord, trimIfTooLarge } from "../lib/buffer.js";
 import { createLogger } from "../lib/logging.js";
 
-const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+const log = createLogger(pluginDataDir());
 
 interface EditToolInput {
   file_path?: string;

@@ -12,8 +12,8 @@ In Claude Code:
 /plugin install weft-plugin@weft
 ```
 
-For a downloaded release, extract the archive and add its `weft-plugin-0.1.2`
-directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.2`.
+For a downloaded release, extract the archive and add its `weft-plugin-0.1.3`
+directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.3`.
 Then install `weft-plugin@weft`.
 
 ## Connect a project
@@ -49,3 +49,7 @@ npm test
 Seven skills, five hooks, and four MCP tools are included. Runtime entrypoints in
 `commands/`, `hooks/`, and `mcp-server/` are self-contained committed bundles;
 regenerate them after source changes. Tests use a local mock API.
+
+Plugin data uses `CLAUDE_PLUGIN_DATA` when provided. Otherwise it persists under
+`~/.claude/plugins/data/weft-plugin` (or the same subdirectory of
+`CLAUDE_CONFIG_DIR`). This works across plugin updates without extra setup.

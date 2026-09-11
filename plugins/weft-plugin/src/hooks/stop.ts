@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { readFileSync } from "node:fs";
 import { isAbsolute, relative } from "node:path";
 import { loadLinkedProject } from "../lib/config.js";
@@ -11,7 +12,7 @@ import { applyChain } from "../lib/redaction.js";
 import { loadIgnoreMatcher } from "../lib/ignore.js";
 import { createLogger } from "../lib/logging.js";
 
-const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+const log = createLogger(pluginDataDir());
 
 interface HookInput { session_id?: string }
 

@@ -1,3 +1,4 @@
+import { pluginDataDir } from "../lib/data-dir.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -10,11 +11,11 @@ import { registerRecentTool } from "./tools/recent.js";
 import { registerWriteProposalTool } from "./tools/write-proposal.js";
 import { registerPinTool } from "./tools/pin.js";
 
-const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
+const log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 
 const server = new Server(
-  { name: "agent-memory", version: "0.1.2" },
+  { name: "agent-memory", version: "0.1.3" },
   { capabilities: { tools: {} } },
 );
 

@@ -83,10 +83,14 @@ bundles are what actually ship.
 
 To create a distributable ZIP and SHA-256 checksum after bundling and testing,
 run `python3 scripts/package-release.py` from the repository root. Extract the
-ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.2`
+ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.3`
 in Claude Code and install `weft-plugin@weft`. GitHub installs receive this
 version only after these changes are published to the marketplace repository.
 
 ## Licence
 
 MIT
+
+Plugin data uses `CLAUDE_PLUGIN_DATA` when provided. Otherwise it persists under
+`~/.claude/plugins/data/weft-plugin` (or the same subdirectory of
+`CLAUDE_CONFIG_DIR`). This works across plugin updates without extra setup.

@@ -1,3 +1,4 @@
+import { pluginDataDir } from "./data-dir.js";
 import {
   mkdirSync, appendFileSync, readFileSync, writeFileSync, statSync,
   existsSync, renameSync,
@@ -27,11 +28,6 @@ export interface CandidateRecord {
 
 export type BufferRecord = EditRecord | CandidateRecord;
 
-function pluginDataDir(): string {
-  const d = process.env.CLAUDE_PLUGIN_DATA;
-  if (!d) throw new Error("CLAUDE_PLUGIN_DATA env var not set");
-  return d;
-}
 
 export function bufferPathFor(repoHash: string): string {
   return join(pluginDataDir(), "buffers", `${repoHash}.jsonl`);
