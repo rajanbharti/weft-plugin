@@ -12,8 +12,8 @@ In Claude Code:
 /plugin install weft-plugin@weft
 ```
 
-For a downloaded release, extract the archive and add its `weft-plugin-0.1.1`
-directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.1`.
+For a downloaded release, extract the archive and add its `weft-plugin-0.1.2`
+directory as a local marketplace with `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.2`.
 Then install `weft-plugin@weft`.
 
 ## Connect a project
@@ -24,9 +24,8 @@ Get a project ID and shared token from the Weft dashboard, then run:
 /weft-plugin:memory-link <project-id> <token>
 ```
 
-The default API is https://service-production-a3ce.up.railway.app.
-The `defaultServer` plugin option selects another deployment;
-`AGENT_MEMORY_DEFAULT_SERVER` takes precedence when set.
+The API is https://service-production-a3ce.up.railway.app.
+The plugin uses this hosted service automatically; no server configuration is required.
 Linking saves the server and project ID in `.claude/memory-config.json` and
 stores the token privately in `CLAUDE_PLUGIN_DATA`. Commit the repository
 configuration and `.projectmemoryignore`, never the token store.

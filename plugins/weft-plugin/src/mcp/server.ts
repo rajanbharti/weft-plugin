@@ -14,7 +14,7 @@ const log = createLogger(process.env.CLAUDE_PLUGIN_DATA ?? "/tmp");
 log.info("mcp.server.start");
 
 const server = new Server(
-  { name: "agent-memory", version: "0.1.1" },
+  { name: "agent-memory", version: "0.1.2" },
   { capabilities: { tools: {} } },
 );
 

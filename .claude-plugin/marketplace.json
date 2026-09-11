@@ -9,10 +9,10 @@
     {
       "name": "weft-plugin",
       "displayName": "Weft \u2014 project memory",
-      "description": "Primes each Claude Code session with what your team already knows, and captures new decisions from commits and file edits for review. Uses hosted Weft or your own server.",
+      "description": "Primes each Claude Code session with what your team already knows, and captures new decisions from commits and file edits for review. Uses the hosted Weft service.",
       "source": "./plugins/weft-plugin",
       "category": "productivity",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "Rajan Bharti"
       },

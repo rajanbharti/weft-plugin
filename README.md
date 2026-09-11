@@ -5,7 +5,7 @@ session and captured back from the work you actually do.
 
 This repository is a **Claude Code plugin marketplace**. The plugin is a client:
 it talks to the hosted Weft API at
-https://service-production-a3ce.up.railway.app, or a server you configure.
+https://service-production-a3ce.up.railway.app.
 Approved captures and search queries are sent to that service.
 
 ## Install
@@ -15,9 +15,8 @@ Approved captures and search queries are sent to that service.
 /plugin install weft-plugin@weft
 ```
 
-Claude Code asks once for a default server. It is pre-filled with the hosted
-Weft instance; point it at your own deployment if you run one, and individual
-repositories can override it later with `/memory-link`.
+The plugin connects to hosted Weft automatically. No server URL or server
+configuration is required; you only need your project ID and token.
 
 ## Connect a repository
 
@@ -84,7 +83,7 @@ bundles are what actually ship.
 
 To create a distributable ZIP and SHA-256 checksum after bundling and testing,
 run `python3 scripts/package-release.py` from the repository root. Extract the
-ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.1`
+ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.2`
 in Claude Code and install `weft-plugin@weft`. GitHub installs receive this
 version only after these changes are published to the marketplace repository.
 

@@ -1,19 +1,11 @@
 {
   "name": "weft-plugin",
-  "version": "0.1.1",
-  "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Uses hosted Weft or your own server.",
+  "version": "0.1.2",
+  "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Uses the hosted Weft service.",
   "author": {
     "name": "Rajan Bharti"
   },
   "license": "MIT",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
-  "userConfig": {
-    "defaultServer": {
-      "type": "string",
-      "title": "Weft server URL",
-      "description": "Weft server this plugin talks to. Override per repository with /memory-link.",
-      "default": "https://service-production-a3ce.up.railway.app"
-    }
-  }
+  "mcpServers": "./.mcp.json"
 }
