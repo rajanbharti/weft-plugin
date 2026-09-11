@@ -88,7 +88,7 @@ bundles are what actually ship.
 
 To create a distributable ZIP and SHA-256 checksum after bundling and testing,
 run `python3 scripts/package-release.py` from the repository root. Extract the
-ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.2.2`
+ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.3.0`
 in Claude Code and install `weft-plugin@weft`. GitHub installs receive this
 version only after these changes are published to the marketplace repository.
 
@@ -122,3 +122,19 @@ a restart. Commands, hooks, and MCP tools use only `process.cwd()` to locate the
 `CLAUDE_PROJECT_DIR` and hook payload paths are ignored. Launch Claude Code from
 the repository you linked; the plugin cache is never the working directory. Restart
 Claude Code once after installing updates to load the new MCP configuration.
+
+## Raw ingestion compatibility (v0.3.0)
+
+The plugin probes the service for raw-event ingestion support. When supported,
+activity is stored as raw evidence, separate from ordinary memory entries. When
+the capability endpoint returns HTTP 404, uploads continue through the legacy
+pending-entry API. Authentication/network/server failures never trigger fallback.
+The selected transport is persisted before sending, so an uncertain response does
+not move the same event between endpoints during an upgrade.
+
+New outbox records preserve event IDs and repository registration across retries.
+The raw API deduplicates retries; the legacy API remains at-least-once. Rejected
+raw events move to a private outbox quarantine so subsequent events can proceed.
+Existing unversioned outbox records continue through the legacy API. No relinking
+is required. Automatic platform summarization is not included in this release;
+raw storage requires the corresponding service migration and deployment.

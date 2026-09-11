@@ -53,6 +53,26 @@ export function assertAllowedServer(server: string): void {
   }
 }
 
+export interface RawActivityEvent {
+  clientEventId: string;
+  provider: "claude";
+  instanceId: string;
+  repositoryId: string;
+  sessionId: string;
+  eventType: "prompt.submitted" | "tool.completed" | "tool.failed" | "turn.completed" | "subagent.completed" | "session.ended";
+  occurredAt: string;
+  toolCallId?: string;
+  actor?: { email: string; name?: string };
+  payload: Record<string, unknown>;
+  redactionApplied: boolean;
+  truncated: boolean;
+}
+
+export type ActivityAcknowledgement = { index: number; clientEventId: string | null } & (
+  { status: "accepted" | "duplicate"; id: string; sequence: number } |
+  { status: "rejected"; reason: string }
+);
+
 export interface ApiClientOptions { timeoutMs?: number }
 
 export class MemoryApiClient {
@@ -91,6 +111,22 @@ export class MemoryApiClient {
       throw new UnexpectedStatusError(res.status, body);
     }
     return (await res.json()) as T;
+  }
+
+  activityCapabilities() {
+    return this.request<{ schemaVersions: number[]; maxBatchEvents: number; maxPayloadBytes: number }>("/v1/activity/capabilities");
+  }
+
+  ingestActivity(events: RawActivityEvent[]) {
+    return this.request<{ schemaVersion: number; acknowledgements: ActivityAcknowledgement[] }>("/v1/activity/events", {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, events }),
+    });
+  }
+
+  linkRepository(projectId: string, remoteUrl: string, label: string) {
+    return this.request<{ repo: { id: string } }>(`/v1/projects/${projectId}/link`, {
+      method: "POST", body: JSON.stringify({ remoteUrl, label }),
+    });
   }
 
   listRecent(params?: { limit?: number; since?: string }) {

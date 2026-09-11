@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from "fastify";
 
 export interface MockFixtures {
+  rawActivity?: boolean;
   recent?: unknown[];
   pinned?: unknown[];
   validToken?: string;
@@ -11,6 +12,8 @@ export interface StoppedMock {
   app: FastifyInstance;
   createdEntries: any[];
   writeStatus: { code: number };
+  rawEvents: any[];
+  rawControl: { code: number; rejectNext: boolean; loseAck: boolean; capabilityCode: number };
   ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }>;
   stop(): Promise<void>;
 }
@@ -23,6 +26,8 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
   const app = Fastify({ logger: false });
   const createdEntries: any[] = [];
   const writeStatus = { code: 200 };
+  const rawEvents: any[] = [];
+  const rawControl = { code: 200, rejectNext: false, loseAck: false, capabilityCode: fixtures.rawActivity ? 200 : 404 };
   const ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }> = [];
 
   app.addHook("preHandler", async (req, reply) => {
@@ -31,6 +36,28 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     if (header !== `Bearer ${validToken}`) {
       reply.code(401).send({ error: "unauthorized" });
     }
+  });
+
+  app.get("/v1/activity/capabilities", async (_, reply) => {
+    if (rawControl.capabilityCode !== 200) return reply.code(rawControl.capabilityCode).send({ error: "unavailable" });
+    return { schemaVersions: [1], maxBatchEvents: 50, maxPayloadBytes: 64000 };
+  });
+  app.post("/v1/activity/events", async (req: any, reply) => {
+    if (rawControl.code !== 200) return reply.code(rawControl.code).send({ error: "unavailable" });
+    const acknowledgements = req.body.events.map((event: any, index: number) => {
+      if (rawControl.rejectNext) {
+        rawControl.rejectNext = false;
+        return { index, clientEventId: event.clientEventId, status: "rejected", reason: "invalid_event" };
+      }
+      const existing = rawEvents.find(e => e.clientEventId === event.clientEventId);
+      if (!existing) rawEvents.push(event);
+      return { index, clientEventId: event.clientEventId, status: existing ? "duplicate" : "accepted", id: event.clientEventId, sequence: rawEvents.length };
+    });
+    if (rawControl.loseAck) {
+      rawControl.loseAck = false;
+      return reply.code(503).send({ error: "lost_ack" });
+    }
+    return { schemaVersion: 1, acknowledgements };
   });
 
   app.get("/healthz", async () => ({ ok: true }));
@@ -74,6 +101,8 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     ignoreRulePushes,
     createdEntries,
     writeStatus,
+    rawEvents,
+    rawControl,
     async stop() { await app.close(); },
   };
 }

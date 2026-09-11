@@ -15,7 +15,7 @@ const log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 
 const server = new Server(
-  { name: "agent-memory", version: "0.2.2" },
+  { name: "agent-memory", version: "0.3.0" },
   { capabilities: { tools: {} } },
 );
 

@@ -70,7 +70,7 @@ describe("automatic activity sync", () => {
     const original = JSON.parse(readFileSync(join(activityQueueDir(dir, linked), queued()[0]), "utf8"));
     mock.writeStatus.code = 200;
     expect(await run({ hook_event_name: "SessionStart" })).toBe(0);
-    expect(mock.createdEntries[0]).toEqual(original);
+    expect(mock.createdEntries[0]).toEqual(original.legacyEntry);
     expect(queued()).toHaveLength(0);
   });
   it("does not lose concurrent captures or upload the same queue concurrently", async () => {

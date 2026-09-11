@@ -868,6 +868,37 @@ async function loadLinkedProject(projectDir) {
   };
 }
 
+// src/lib/errors.ts
+var PluginError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "PluginError";
+  }
+};
+var TokenInvalidError = class extends PluginError {
+  constructor() {
+    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
+  }
+};
+var NetworkError = class extends PluginError {
+  constructor(cause) {
+    super("network", `Memory service unreachable: ${cause}`);
+  }
+};
+var UnexpectedStatusError = class extends PluginError {
+  constructor(status, body) {
+    super("unexpected_status", `Service returned ${status}: ${body}`);
+    this.status = status;
+  }
+};
+var InsecureServerError = class extends PluginError {
+  constructor(server) {
+    super("insecure_server", `Refusing insecure server URL: HTTPS required (localhost exempt). Got: ${server}`);
+  }
+};
+
 // src/lib/project-path.ts
 import { realpathSync } from "node:fs";
 import { dirname, basename, join as join3, relative, isAbsolute } from "node:path";
@@ -1004,36 +1035,6 @@ function applyChain(content, ctx) {
   return { content: cur, flagged, dropped: false };
 }
 
-// src/lib/errors.ts
-var PluginError = class extends Error {
-  code;
-  constructor(code, message) {
-    super(message);
-    this.code = code;
-    this.name = "PluginError";
-  }
-};
-var TokenInvalidError = class extends PluginError {
-  constructor() {
-    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
-  }
-};
-var NetworkError = class extends PluginError {
-  constructor(cause) {
-    super("network", `Memory service unreachable: ${cause}`);
-  }
-};
-var UnexpectedStatusError = class extends PluginError {
-  constructor(status, body) {
-    super("unexpected_status", `Service returned ${status}: ${body}`);
-  }
-};
-var InsecureServerError = class extends PluginError {
-  constructor(server) {
-    super("insecure_server", `Refusing insecure server URL: HTTPS required (localhost exempt). Got: ${server}`);
-  }
-};
-
 // src/lib/api-client.ts
 var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
 function assertAllowedServer(server) {
@@ -1084,6 +1085,21 @@ var MemoryApiClient = class {
     }
     return await res.json();
   }
+  activityCapabilities() {
+    return this.request("/v1/activity/capabilities");
+  }
+  ingestActivity(events) {
+    return this.request("/v1/activity/events", {
+      method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, events })
+    });
+  }
+  linkRepository(projectId, remoteUrl, label) {
+    return this.request(`/v1/projects/${projectId}/link`, {
+      method: "POST",
+      body: JSON.stringify({ remoteUrl, label })
+    });
+  }
   listRecent(params) {
     const q = new URLSearchParams();
     if (params?.limit) q.set("limit", String(params.limit));
@@ -1121,6 +1137,31 @@ var MemoryApiClient = class {
 };
 
 // src/lib/activity.ts
+var EVENT_TYPES = {
+  UserPromptSubmit: "prompt.submitted",
+  PostToolUse: "tool.completed",
+  PostToolUseFailure: "tool.failed",
+  Stop: "turn.completed",
+  SubagentStop: "subagent.completed",
+  SessionEnd: "session.ended"
+};
+function repositoryDescriptor(projectDir) {
+  let remote = "";
+  try {
+    remote = execFileSync("git", ["remote", "get-url", "origin"], { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1e3 }).trim();
+    const scp = remote.match(/^(?:[^@/]+@)?([^/:]+):([^/].*)$/);
+    const url = new URL(scp ? `https://${scp[1]}/${scp[2]}` : remote);
+    if (!["https:", "http:", "ssh:"].includes(url.protocol)) remote = "";
+    else remote = `https://${url.hostname.toLowerCase()}${url.pathname.replace(/\.git\/?$/, "").replace(/\/$/, "")}`;
+  } catch {
+    remote = "";
+  }
+  return { remoteUrl: remote || `local://${instanceId()}/${repoHash(projectDir)}`, label: basename2(projectDir).slice(0, 60) };
+}
+function saveQueueRecord(file, record) {
+  writeFileSync2(file + ".tmp", JSON.stringify(record), { mode: 384 });
+  renameSync(file + ".tmp", file);
+}
 function activityQueueDir(projectDir, linked) {
   const target = createHash2("sha256").update(`${linked.server}
 ${linked.projectId}`).digest("hex").slice(0, 16);
@@ -1217,8 +1258,24 @@ function enqueueActivity(projectDir, linked, event) {
   const dir = activityQueueDir(projectDir, linked);
   mkdirSync2(dir, { recursive: true, mode: 448 });
   const file = join5(dir, `${Date.now()}-${eventId}.json`);
-  writeFileSync2(file + ".tmp", JSON.stringify(body), { mode: 384 });
-  renameSync(file + ".tmp", file);
+  saveQueueRecord(file, {
+    queueVersion: 2,
+    repository: repositoryDescriptor(projectDir),
+    legacyEntry: body,
+    event: {
+      clientEventId: eventId,
+      provider: "claude",
+      instanceId: instanceId(),
+      sessionId: event.session_id ?? "unknown",
+      eventType: EVENT_TYPES[label] ?? "tool.completed",
+      occurredAt: timestamp,
+      toolCallId: event.tool_use_id,
+      actor: { email: actor.email, name: actor.name },
+      payload: { content },
+      redactionApplied: body.redactionApplied ?? false,
+      truncated: content !== filtered.content || filtered.content.includes("\u2026[truncated]")
+    }
+  });
   return eventId;
 }
 async function flushActivity(projectDir, linked, budgetMs = 2e4) {
@@ -1239,10 +1296,52 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
-      const body = JSON.parse(readFileSync3(join5(dir, file), "utf8"));
-      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(8e3, remaining) });
-      await client.createEntry(body);
-      unlinkSync(join5(dir, file));
+      const path = join5(dir, file);
+      const queued = JSON.parse(readFileSync3(path, "utf8"));
+      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5e3, remaining) });
+      if (!("queueVersion" in queued)) {
+        await client.createEntry(queued);
+        unlinkSync(path);
+        sent++;
+        continue;
+      }
+      if (queued.queueVersion !== 2) throw new Error("unsupported_activity_queue_version");
+      if (!queued.transport) {
+        try {
+          const capabilities = await client.activityCapabilities();
+          if (!capabilities.schemaVersions?.includes(1)) throw new Error("unsupported_activity_schema");
+          queued.transport = "raw";
+        } catch (e) {
+          if (!(e instanceof UnexpectedStatusError) || e.status !== 404) throw e;
+          queued.transport = "legacy";
+        }
+        saveQueueRecord(path, queued);
+      }
+      if (queued.transport === "legacy") {
+        await client.createEntry(queued.legacyEntry);
+      } else {
+        if (!queued.repositoryId) {
+          const result = await client.linkRepository(linked.projectId, queued.repository.remoteUrl, queued.repository.label);
+          if (!result.repo?.id) throw new Error("invalid_repository_acknowledgement");
+          queued.repositoryId = result.repo.id;
+          saveQueueRecord(path, queued);
+        }
+        const response = await client.ingestActivity([{ ...queued.event, repositoryId: queued.repositoryId }]);
+        const ack = response.acknowledgements?.[0];
+        if (response.schemaVersion !== 1 || response.acknowledgements?.length !== 1 || !ack || ack.index !== 0 || ack.clientEventId !== queued.event.clientEventId) {
+          throw new Error("invalid_activity_acknowledgement");
+        }
+        if (ack.status === "rejected") {
+          const quarantine = join5(dir, "quarantine");
+          mkdirSync2(quarantine, { recursive: true, mode: 448 });
+          writeFileSync2(join5(quarantine, file + ".reason"), ack.reason, { mode: 384 });
+          renameSync(path, join5(quarantine, file));
+          process.stderr.write("[weft] An activity event was rejected and moved to the local outbox quarantine.\n");
+          continue;
+        }
+        if (!["accepted", "duplicate"].includes(ack.status) || !("id" in ack) || !ack.id) throw new Error("invalid_activity_acknowledgement");
+      }
+      unlinkSync(path);
       sent++;
     }
   } finally {

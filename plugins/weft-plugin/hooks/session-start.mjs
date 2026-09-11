@@ -31,6 +31,7 @@ var NetworkError = class extends PluginError {
 var UnexpectedStatusError = class extends PluginError {
   constructor(status, body) {
     super("unexpected_status", `Service returned ${status}: ${body}`);
+    this.status = status;
   }
 };
 var InsecureServerError = class extends PluginError {
@@ -88,6 +89,21 @@ var MemoryApiClient = class {
       throw new UnexpectedStatusError(res.status, body);
     }
     return await res.json();
+  }
+  activityCapabilities() {
+    return this.request("/v1/activity/capabilities");
+  }
+  ingestActivity(events) {
+    return this.request("/v1/activity/events", {
+      method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, events })
+    });
+  }
+  linkRepository(projectId, remoteUrl, label) {
+    return this.request(`/v1/projects/${projectId}/link`, {
+      method: "POST",
+      body: JSON.stringify({ remoteUrl, label })
+    });
   }
   listRecent(params) {
     const q = new URLSearchParams();

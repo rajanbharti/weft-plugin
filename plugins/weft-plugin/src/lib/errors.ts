@@ -26,7 +26,7 @@ export class NetworkError extends PluginError {
 }
 
 export class UnexpectedStatusError extends PluginError {
-  constructor(status: number, body: string) {
+  constructor(readonly status: number, body: string) {
     super("unexpected_status", `Service returned ${status}: ${body}`);
   }
 }
