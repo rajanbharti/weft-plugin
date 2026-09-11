@@ -27,6 +27,7 @@ export interface SearchFilters {
 export interface SearchInput { query: string; filters?: SearchFilters; limit?: number }
 
 export interface CreateEntryInput {
+  redactionApplied?: boolean;
   category: Entry["category"];
   source: Entry["source"];
   content: string;

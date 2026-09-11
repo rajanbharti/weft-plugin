@@ -23,6 +23,7 @@ export const ignoreFilter: Filter = (input, ctx) => {
 };
 
 const SECRET_PATTERNS: { name: string; re: RegExp }[] = [
+  { name: "weft-token", re: /\b(?:pmt|sess|mlr)_[A-Za-z0-9_-]+/g },
   { name: "aws-access-key", re: /\bAKIA[0-9A-Z]{16}\b/g },
   { name: "github-token", re: /\bgh[posu]_[A-Za-z0-9]{36,251}\b/g },
   { name: "api-key", re: /\bapi[_-]?key\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}["']?/gi },

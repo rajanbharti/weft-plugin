@@ -9,6 +9,8 @@ export interface MockFixtures {
 export interface StoppedMock {
   url: string;
   app: FastifyInstance;
+  createdEntries: any[];
+  writeStatus: { code: number };
   ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }>;
   stop(): Promise<void>;
 }
@@ -19,6 +21,8 @@ const newId = (prefix: string) => `${prefix}_${(++counter).toString(36)}`;
 export async function startMockService(fixtures: MockFixtures = {}): Promise<StoppedMock> {
   const validToken = fixtures.validToken ?? "pmt_test";
   const app = Fastify({ logger: false });
+  const createdEntries: any[] = [];
+  const writeStatus = { code: 200 };
   const ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }> = [];
 
   app.addHook("preHandler", async (req, reply) => {
@@ -38,9 +42,11 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     entries: (fixtures.recent ?? []).slice(0, req.body?.limit ?? 10),
   }));
 
-  app.post("/v1/entries", async (req: any) => ({
-    entry: { id: newId("entry"), pinned: false, ...(req.body ?? {}) },
-  }));
+  app.post("/v1/entries", async (req: any, reply) => {
+    if (writeStatus.code !== 200) return reply.code(writeStatus.code).send({ error: "unavailable" });
+    createdEntries.push(req.body);
+    return { entry: { id: newId("entry"), pinned: false, ...(req.body ?? {}) } };
+  });
 
   app.post("/v1/entries/:id/pin", async (req: any) => ({
     entry: { id: req.params.id, pinned: req.body?.pinned ?? true },
@@ -66,6 +72,8 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     url: `http://127.0.0.1:${address.port}`,
     app,
     ignoreRulePushes,
+    createdEntries,
+    writeStatus,
     async stop() { await app.close(); },
   };
 }

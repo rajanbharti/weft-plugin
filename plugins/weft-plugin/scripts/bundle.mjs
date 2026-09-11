@@ -4,7 +4,7 @@
 import { build } from "esbuild";
 import { mkdir } from "node:fs/promises";
 
-const HOOKS = ["session-start", "pre-tool-use", "post-tool-bash", "post-tool-edit", "stop"];
+const HOOKS = ["activity", "session-start", "pre-tool-use", "post-tool-bash", "post-tool-edit", "stop"];
 const COMMANDS = ["link", "unlink", "search", "recent", "pin", "write", "review"];
 
 const shared = {

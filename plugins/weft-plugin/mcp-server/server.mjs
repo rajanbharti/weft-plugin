@@ -18715,7 +18715,7 @@ function registerPinTool(reg) {
 var log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 var server = new Server(
-  { name: "agent-memory", version: "0.1.3" },
+  { name: "agent-memory", version: "0.2.0" },
   { capabilities: { tools: {} } }
 );
 var tools = {};

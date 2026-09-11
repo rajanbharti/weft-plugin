@@ -666,13 +666,13 @@ var require_ignore = __commonJS({
         const rules = this._rules;
         const { length } = rules;
         const shortcut = this._basenameCount * 2 >= length;
-        const basename = shortcut ? basenameOf(path) : path;
+        const basename2 = shortcut ? basenameOf(path) : path;
         for (let index = 0; index < length; index++) {
           const rule = rules[index];
           const { negative } = rule;
           const skip = unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored;
           if (!skip && rule[mode].test(
-            shortcut && rule._basenameOnly ? basename : path
+            shortcut && rule._basenameOnly ? basename2 : path
           )) {
             ignored = !negative;
             unignored = negative;
@@ -824,16 +824,15 @@ var require_ignore = __commonJS({
   }
 });
 
+// src/hooks/activity.ts
+import { readFileSync as readFileSync4 } from "node:fs";
+
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join } from "node:path";
 function pluginDataDir() {
   return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
 }
-
-// src/hooks/post-tool-bash.ts
-import { execFileSync } from "node:child_process";
-import { readFileSync as readFileSync4 } from "node:fs";
 
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
@@ -869,6 +868,12 @@ async function loadLinkedProject(projectDir) {
   };
 }
 
+// src/lib/activity.ts
+import { createHash as createHash2, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join4, relative, isAbsolute, basename } from "node:path";
+
 // src/lib/repo-hash.ts
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
@@ -883,37 +888,36 @@ function repoHash(absolutePath) {
   return createHash("sha256").update(real).digest("hex").slice(0, 16);
 }
 
-// src/lib/buffer.ts
-import {
-  mkdirSync as mkdirSync2,
-  appendFileSync,
-  readFileSync as readFileSync2,
-  writeFileSync as writeFileSync2,
-  statSync,
-  existsSync as existsSync2,
-  renameSync
-} from "node:fs";
+// src/lib/ignore.ts
+var import_ignore = __toESM(require_ignore(), 1);
+import { readFileSync as readFileSync2, existsSync as existsSync2 } from "node:fs";
 import { join as join3 } from "node:path";
-function bufferPathFor(repoHash2) {
-  return join3(pluginDataDir(), "buffers", `${repoHash2}.jsonl`);
+var PROJECT_FILE = [".projectmemoryignore"];
+var DEV_FILE = [".claude", "memoryignore"];
+function readPatterns(filePath) {
+  if (!existsSync2(filePath)) return [];
+  return readFileSync2(filePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));
 }
-async function appendRecord(repoHash2, record) {
-  const path = bufferPathFor(repoHash2);
-  mkdirSync2(join3(pluginDataDir(), "buffers"), { recursive: true });
-  appendFileSync(path, JSON.stringify(record) + "\n", "utf8");
+function expandNegations(patterns) {
+  const expanded = [];
+  for (const p of patterns) {
+    expanded.push(p);
+    if (p.startsWith("!") && (p.endsWith("/**") || p.endsWith("/*"))) {
+      const dir = p.slice(1, p.lastIndexOf("/"));
+      if (dir) expanded.push("!" + dir);
+    }
+  }
+  return expanded;
 }
-async function trimIfTooLarge(repoHash2, maxBytes) {
-  const path = bufferPathFor(repoHash2);
-  if (!existsSync2(path)) return false;
-  const size = statSync(path).size;
-  if (size <= maxBytes) return false;
-  const buf = readFileSync2(path);
-  const target = 1e6;
-  const tail = buf.subarray(buf.length - target);
-  const nl = tail.indexOf(10);
-  const kept = nl >= 0 ? tail.subarray(nl + 1) : tail;
-  writeFileSync2(path, kept);
-  return true;
+function loadIgnoreMatcher(repoDir) {
+  const projectPatterns = readPatterns(join3(repoDir, ...PROJECT_FILE));
+  const devPatterns = readPatterns(join3(repoDir, ...DEV_FILE));
+  const patterns = [...projectPatterns, ...devPatterns];
+  const ig = (0, import_ignore.default)().add(expandNegations(patterns));
+  return {
+    patterns,
+    isIgnored: (path) => ig.ignores(path)
+  };
 }
 
 // src/lib/redaction.ts
@@ -985,46 +989,261 @@ function applyChain(content, ctx) {
   return { content: cur, flagged, dropped: false };
 }
 
-// src/lib/ignore.ts
-var import_ignore = __toESM(require_ignore(), 1);
-import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
-import { join as join4 } from "node:path";
-var PROJECT_FILE = [".projectmemoryignore"];
-var DEV_FILE = [".claude", "memoryignore"];
-function readPatterns(filePath) {
-  if (!existsSync3(filePath)) return [];
-  return readFileSync3(filePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));
-}
-function expandNegations(patterns) {
-  const expanded = [];
-  for (const p of patterns) {
-    expanded.push(p);
-    if (p.startsWith("!") && (p.endsWith("/**") || p.endsWith("/*"))) {
-      const dir = p.slice(1, p.lastIndexOf("/"));
-      if (dir) expanded.push("!" + dir);
-    }
+// src/lib/errors.ts
+var PluginError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "PluginError";
   }
-  return expanded;
+};
+var TokenInvalidError = class extends PluginError {
+  constructor() {
+    super("token_invalid", "Project token is invalid or has been rotated. Run /memory-link with a fresh token.");
+  }
+};
+var NetworkError = class extends PluginError {
+  constructor(cause) {
+    super("network", `Memory service unreachable: ${cause}`);
+  }
+};
+var UnexpectedStatusError = class extends PluginError {
+  constructor(status, body) {
+    super("unexpected_status", `Service returned ${status}: ${body}`);
+  }
+};
+var InsecureServerError = class extends PluginError {
+  constructor(server) {
+    super("insecure_server", `Refusing insecure server URL: HTTPS required (localhost exempt). Got: ${server}`);
+  }
+};
+
+// src/lib/api-client.ts
+var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+function assertAllowedServer(server) {
+  let parsed;
+  try {
+    parsed = new URL(server);
+  } catch {
+    return;
+  }
+  if (parsed.protocol === "http:" && !LOCAL_HOSTNAMES.has(parsed.hostname)) {
+    throw new InsecureServerError(server);
+  }
 }
-function loadIgnoreMatcher(repoDir) {
-  const projectPatterns = readPatterns(join4(repoDir, ...PROJECT_FILE));
-  const devPatterns = readPatterns(join4(repoDir, ...DEV_FILE));
-  const patterns = [...projectPatterns, ...devPatterns];
-  const ig = (0, import_ignore.default)().add(expandNegations(patterns));
-  return {
-    patterns,
-    isIgnored: (path) => ig.ignores(path)
+var MemoryApiClient = class {
+  constructor(server, token, opts = {}) {
+    this.server = server;
+    this.token = token;
+    assertAllowedServer(server);
+    this.timeoutMs = opts.timeoutMs ?? 1e4;
+  }
+  timeoutMs;
+  async request(path, init = {}) {
+    let res;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      res = await fetch(`${this.server}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          ...init.headers ?? {},
+          "authorization": `Bearer ${this.token}`,
+          "content-type": "application/json"
+        }
+      });
+    } catch (e) {
+      if (e.name === "AbortError") {
+        throw new NetworkError(`timeout after ${this.timeoutMs / 1e3}s`);
+      }
+      throw new NetworkError(e.message);
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (res.status === 401) throw new TokenInvalidError();
+    if (!res.ok) {
+      const body = await res.text();
+      throw new UnexpectedStatusError(res.status, body);
+    }
+    return await res.json();
+  }
+  listRecent(params) {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.since) q.set("since", params.since);
+    const suffix = q.toString() ? `?${q.toString()}` : "";
+    return this.request(`/v1/entries/recent${suffix}`);
+  }
+  listPinned() {
+    return this.request("/v1/entries/pinned");
+  }
+  search(body) {
+    return this.request("/v1/entries/search", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+  createEntry(body) {
+    return this.request("/v1/entries", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+  pinEntry(entryId, pinned = true) {
+    return this.request(`/v1/entries/${entryId}/pin`, {
+      method: "POST",
+      body: JSON.stringify({ pinned })
+    });
+  }
+  pushIgnoreRules(projectId, patterns) {
+    return this.request(`/v1/projects/${projectId}/ignore-rules`, {
+      method: "POST",
+      body: JSON.stringify({ patterns })
+    });
+  }
+};
+
+// src/lib/activity.ts
+function activityQueueDir(projectDir, linked) {
+  const target = createHash2("sha256").update(`${linked.server}
+${linked.projectId}`).digest("hex").slice(0, 16);
+  return join4(pluginDataDir(), "outbox", target, repoHash(projectDir));
+}
+function identity(projectDir) {
+  const get = (key) => {
+    try {
+      return execFileSync("git", ["config", "--get", key], { cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 1e3 }).trim();
+    } catch {
+      return "";
+    }
   };
+  const email = get("user.email");
+  return { email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "unattributed@weft.invalid", name: get("user.name").slice(0, 120) || void 0 };
+}
+function instanceId() {
+  const dir = pluginDataDir();
+  mkdirSync2(dir, { recursive: true, mode: 448 });
+  const file = join4(dir, "instance-id");
+  try {
+    writeFileSync2(file, randomUUID(), { flag: "wx", mode: 384 });
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+  }
+  return readFileSync3(file, "utf8").trim();
+}
+function safeValue(value) {
+  if (Array.isArray(value)) return value.map(safeValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, val]) => [
+      key,
+      /password|secret|token|authorization|cookie|api[_-]?key/i.test(key) ? "[REDACTED]" : safeValue(val)
+    ]));
+  }
+  return value;
+}
+function referencedPaths(value) {
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, val]) => /^(file_path|path|notebook_path)$/.test(key) && typeof val === "string" ? [val] : referencedPaths(val));
+}
+function enqueueActivity(projectDir, linked, event) {
+  const eventId = randomUUID();
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const matcher = loadIgnoreMatcher(projectDir);
+  const paths = referencedPaths(event.tool_input);
+  const excluded = paths.some((path) => {
+    const local = isAbsolute(path) ? relative(projectDir, path) : path;
+    return local === ".." || local.startsWith("../") || isAbsolute(local) || /(^|\/)(\.env[^/]*|secrets|credentials|\.ssh)(\/|$)/.test(local) || local !== "" && matcher.isIgnored(local);
+  });
+  const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "");
+  const payload = excluded || memoryTool ? { omitted: excluded ? "excluded file payload" : "memory tool payload" } : safeValue({
+    input: event.tool_input,
+    output: event.tool_response,
+    prompt: event.prompt,
+    response: event.last_assistant_message,
+    error: event.error,
+    reason: event.reason
+  });
+  const label = event.hook_event_name ?? "activity";
+  const text = JSON.stringify({
+    eventId,
+    timestamp,
+    session: event.session_id ?? "unknown",
+    repository: repoHash(projectDir),
+    repositoryName: basename(projectDir),
+    event: label,
+    tool: event.tool_name,
+    toolUseId: event.tool_use_id,
+    payload
+  }, null, 2);
+  const withoutToken = linked.token ? text.split(linked.token).join("[REDACTED:project-token]") : text;
+  const filtered = applyChain(withoutToken, { ignoreMatcher: matcher, referencedPaths: [] });
+  const content = filtered.content.length > 16e3 ? filtered.content.slice(0, 15960) + "\n[activity payload truncated]" : filtered.content;
+  const actor = identity(projectDir);
+  const body = {
+    category: "active-work",
+    source: /^(Edit|Write|MultiEdit)$/.test(event.tool_name ?? "") ? "file-change" : "claude-proposed",
+    status: "pending",
+    content,
+    authorEmail: actor.email,
+    authorName: actor.name,
+    tags: [
+      "auto-capture",
+      `event:${label}`,
+      `event-id:${eventId}`,
+      `session:${event.session_id ?? "unknown"}`,
+      `repo:${repoHash(projectDir)}`,
+      `instance:${instanceId()}`,
+      ...event.tool_name ? [`tool:${event.tool_name}`] : []
+    ],
+    redactionApplied: filtered.flagged || withoutToken !== text || text.includes("[REDACTED]") || excluded || memoryTool
+  };
+  const dir = activityQueueDir(projectDir, linked);
+  mkdirSync2(dir, { recursive: true, mode: 448 });
+  const file = join4(dir, `${Date.now()}-${eventId}.json`);
+  writeFileSync2(file + ".tmp", JSON.stringify(body), { mode: 384 });
+  renameSync(file + ".tmp", file);
+  return eventId;
+}
+async function flushActivity(projectDir, linked, budgetMs = 2e4) {
+  const dir = activityQueueDir(projectDir, linked);
+  if (!existsSync3(dir)) return 0;
+  const lock = join4(dir, ".upload-lock");
+  try {
+    if (existsSync3(lock) && Date.now() - statSync(lock).mtimeMs > 12e4) unlinkSync(lock);
+    const fd = openSync(lock, "wx", 384);
+    closeSync(fd);
+  } catch (e) {
+    if (e.code === "EEXIST" || e.code === "ENOENT") return 0;
+    throw e;
+  }
+  let sent = 0;
+  const deadline = Date.now() + budgetMs;
+  try {
+    for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      const body = JSON.parse(readFileSync3(join4(dir, file), "utf8"));
+      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(8e3, remaining) });
+      await client.createEntry(body);
+      unlinkSync(join4(dir, file));
+      sent++;
+    }
+  } finally {
+    unlinkSync(lock);
+  }
+  return sent;
 }
 
 // src/lib/logging.ts
-import { mkdirSync as mkdirSync3, appendFileSync as appendFileSync2, readdirSync, statSync as statSync2, unlinkSync } from "node:fs";
+import { mkdirSync as mkdirSync3, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
 import { join as join5 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
   try {
-    entries = readdirSync(logsDir);
+    entries = readdirSync2(logsDir);
   } catch {
     return;
   }
@@ -1033,7 +1252,7 @@ function pruneOldLogs(logsDir) {
     if (!e.endsWith(".log")) continue;
     const full = join5(logsDir, e);
     try {
-      if (statSync2(full).mtimeMs < cutoff) unlinkSync(full);
+      if (statSync2(full).mtimeMs < cutoff) unlinkSync2(full);
     } catch {
     }
   }
@@ -1049,7 +1268,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync2(join5(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join5(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -1061,104 +1280,17 @@ function createLogger(baseDir) {
   };
 }
 
-// src/hooks/post-tool-bash.ts
-var log = createLogger(pluginDataDir());
-var TRIVIAL = /* @__PURE__ */ new Set(["merge", "fix typo"]);
-function readStdin() {
-  try {
-    return readFileSync4(0, "utf8");
-  } catch {
-    return "";
-  }
-}
-function isCommitCommand(cmd) {
-  return /(^|\s|&&\s*|\|\|\s*|;\s*)git\s+(?:-c\s+\S+\s+)*commit\b/.test(cmd);
-}
-function extractCommitMessage(cmd, stdout) {
-  const m = cmd.match(/(?:-m\s*|--message[=\s])("(?:\\.|[^"\\])*"|'[^']*'|[^\s'""][^\s]*)/);
-  if (m) {
-    const raw = m[1];
-    if (raw.startsWith('"')) return raw.slice(1, -1).replace(/\\(["\\])/g, "$1");
-    if (raw.startsWith("'")) return raw.slice(1, -1);
-    return raw;
-  }
-  if (stdout) {
-    const head = stdout.split("\n")[0] ?? "";
-    const idx = head.indexOf("] ");
-    if (idx >= 0) return head.slice(idx + 2).trim();
-  }
-  return "";
-}
-function listChangedPaths(projectDir, logger) {
-  try {
-    const out = execFileSync("git", ["log", "-1", "--name-only", "--pretty=format:", "HEAD"], {
-      cwd: projectDir,
-      encoding: "utf8"
-    });
-    return out.split("\n").map((s) => s.trim()).filter(Boolean);
-  } catch (e) {
-    logger.warn("hook.post-tool-bash.git_log_failed", { error: e?.message ?? String(e) });
-    return [];
-  }
-}
+// src/hooks/activity.ts
 async function main() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR;
-  if (!projectDir) {
-    process.exit(0);
-  }
+  const event = JSON.parse(readFileSync4(0, "utf8"));
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || event.cwd;
+  if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);
-  if (!linked) {
-    log.info("hook.post-tool-bash.skipped", { reason: "not_linked" });
-    process.exit(0);
-  }
-  const input = (() => {
-    try {
-      return JSON.parse(readStdin());
-    } catch {
-      return {};
-    }
-  })();
-  const cmd = input.tool_input?.command ?? "";
-  if (input.tool_name !== "Bash" || !isCommitCommand(cmd)) {
-    process.exit(0);
-  }
-  const message = extractCommitMessage(cmd, input.tool_response?.stdout);
-  const lower = message.trim().toLowerCase();
-  if (message.length < linked.gitCommitMinMessageChars || lower.startsWith("wip") || lower.startsWith("revert") || TRIVIAL.has(lower)) {
-    log.info("hook.post-tool-bash.dropped", { reason: "trivial", message: message.slice(0, 64) });
-    process.exit(0);
-  }
-  const paths = listChangedPaths(projectDir, log);
-  const pathSummary = paths.length === 0 ? "(no path data)" : paths.length <= 30 ? paths.join(", ") : `${paths.slice(0, 30).join(", ")}, \u2026and ${paths.length - 30} more`;
-  const content = `${message}
-
-Files touched: ${pathSummary}`;
-  const ig = loadIgnoreMatcher(projectDir);
-  const out = applyChain(content, { ignoreMatcher: ig, referencedPaths: paths });
-  if (out.dropped) {
-    log.info("hook.post-tool-bash.dropped", { reason: "all_paths_ignored" });
-    process.exit(0);
-  }
-  const id = "buf_" + Math.random().toString(36).slice(2, 18).padEnd(16, "0");
-  const hash = repoHash(projectDir);
-  const trimmed = await trimIfTooLarge(hash, 1e7);
-  if (trimmed) log.warn("hook.post-tool-bash.buffer_trimmed", { hash });
-  await appendRecord(hash, {
-    kind: "candidate",
-    id,
-    session_id: input.session_id ?? "unknown",
-    category: "decision",
-    source: "git-commit",
-    content: out.content,
-    tags: ["git-commit"],
-    namespace: null,
-    redactionApplied: out.flagged,
-    ts: (/* @__PURE__ */ new Date()).toISOString()
-  });
-  log.info("hook.post-tool-bash.captured", { id, paths: paths.length, flagged: out.flagged });
-  process.exit(0);
+  if (!linked) return;
+  if (event.hook_event_name !== "SessionStart") enqueueActivity(projectDir, linked, event);
+  await flushActivity(projectDir, linked);
 }
-main().catch((e) => {
-  log.error("hook.post-tool-bash.uncaught", { error: e?.message ?? String(e) });
-  process.exit(0);
+main().catch(() => {
+  createLogger(pluginDataDir()).warn("activity.upload_pending", { reason: "capture or upload failed; retry on next activity" });
+  process.stderr.write("[weft] Activity sync incomplete; queued activity will retry on the next event or session.\n");
 });
