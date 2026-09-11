@@ -52,8 +52,6 @@ var MemoryApiClient = class {
     assertAllowedServer(server);
     this.timeoutMs = opts.timeoutMs ?? 1e4;
   }
-  server;
-  token;
   timeoutMs;
   async request(path, init = {}) {
     let res;
@@ -251,7 +249,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   log.info("command.link.invoked");
   const [, , projectId, token] = process.argv;
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
-  const defaultServer = process.env.AGENT_MEMORY_DEFAULT_SERVER ?? "http://localhost:3000";
+  const defaultServer = process.env.AGENT_MEMORY_DEFAULT_SERVER?.trim() || process.env.CLAUDE_PLUGIN_OPTION_DEFAULTSERVER?.trim() || process.env.CLAUDE_PLUGIN_OPTION_defaultServer?.trim() || "https://service-production-a3ce.up.railway.app";
   runLink({ projectId, token, projectDir, defaultServer }).then((r) => {
     log.info(r.ok ? "command.link.ok" : "command.link.error", { error: r.error });
     if (r.ok) {

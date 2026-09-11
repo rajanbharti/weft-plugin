@@ -1,7 +1,7 @@
 {
   "name": "weft-plugin",
-  "version": "0.1.0",
-  "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Requires a Weft server you host.",
+  "version": "0.1.1",
+  "description": "Shared project memory for Claude Code. Primes each session with what your team knows and captures new decisions for review. Uses hosted Weft or your own server.",
   "author": {
     "name": "Rajan Bharti"
   },

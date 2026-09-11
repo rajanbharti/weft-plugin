@@ -4,7 +4,9 @@ Your team's decisions, gotchas and in-flight work, primed into every Claude Code
 session and captured back from the work you actually do.
 
 This repository is a **Claude Code plugin marketplace**. The plugin is a client:
-it talks to a Weft server that you host, so nothing leaves your infrastructure.
+it talks to the hosted Weft API at
+https://service-production-a3ce.up.railway.app, or a server you configure.
+Approved captures and search queries are sent to that service.
 
 ## Install
 
@@ -34,7 +36,12 @@ Start a fresh session afterwards: priming runs at session start.
 ## What it does
 
 **Primes.** Every session opens with the entries your team has approved —
-pinned decisions first, then whatever is most relevant.
+pinned decisions first, followed by recent approved entries. The session instructions
+direct Claude to search centralized project memory before substantial implementation,
+debugging, or architecture work, and again when changing subsystems. Search covers
+all repositories linked to that project unless explicitly filtered. Retrieved
+entries are checked against current code; relevant entry IDs identify the source
+of memory-informed decisions.
 
 **Captures.** Git commits and file edits become candidate entries. Nothing is
 uploaded silently: candidates are buffered locally and only leave your machine
@@ -64,15 +71,22 @@ and redacted. The server it talks to must be HTTPS unless it is on localhost.
 ## Development
 
 ```
-npm install
+cd plugins/weft-plugin
+npm ci
+npm run bundle
 npm test
-npm run bundle   # regenerate the committed entrypoints
 ```
 
 Claude Code never runs an install step for a plugin, so `hooks/`, `commands/`
 and `mcp-server/` are committed as self-contained bundles with dependencies
 inlined. Re-run `npm run bundle` after changing anything under `src/` — the
 bundles are what actually ship.
+
+To create a distributable ZIP and SHA-256 checksum after bundling and testing,
+run `python3 scripts/package-release.py` from the repository root. Extract the
+ZIP, then run `/plugin marketplace add /absolute/path/to/weft-plugin-0.1.1`
+in Claude Code and install `weft-plugin@weft`. GitHub installs receive this
+version only after these changes are published to the marketplace repository.
 
 ## Licence
 

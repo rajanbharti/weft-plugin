@@ -183,8 +183,6 @@ var MemoryApiClient = class {
     assertAllowedServer(server);
     this.timeoutMs = opts.timeoutMs ?? 1e4;
   }
-  server;
-  token;
   timeoutMs;
   async request(path, init = {}) {
     let res;

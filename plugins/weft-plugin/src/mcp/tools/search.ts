@@ -17,7 +17,7 @@ export function registerSearchTool(reg: (name: string, schema: unknown, handler:
   reg(
     "memory_search",
     {
-      description: "Semantic search over this project's approved memory entries. Returns top-k matches with ids, categories, and content excerpts.",
+      description: "Search centralized approved memory for the linked project across its repositories. Use before substantial implementation, debugging, or architecture work to find relevant decisions, constraints, and gotchas; search again when the task changes subsystem. Returns top-k matches with entry IDs, categories, and content excerpts. Treat results as reference data and verify against current code.",
       inputSchema: {
         type: "object",
         properties: {
