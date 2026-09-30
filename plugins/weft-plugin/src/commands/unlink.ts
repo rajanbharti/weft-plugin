@@ -3,12 +3,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { clearRepoConfig, clearToken } from "../lib/config.js";
 import { createLogger } from "../lib/logging.js";
+import { configDirectory } from "../lib/runtime.js";
 
 export interface UnlinkInput { projectDir: string }
 export interface UnlinkResult { ok: boolean; removedProjectId?: string; error?: string }
 
 export async function runUnlink(input: UnlinkInput): Promise<UnlinkResult> {
-  const cfgPath = join(input.projectDir, ".claude", "memory-config.json");
+  const cfgPath = join(input.projectDir, configDirectory, "memory-config.json");
   if (!existsSync(cfgPath)) {
     return { ok: false, error: "This repo is not linked to any project memory." };
   }

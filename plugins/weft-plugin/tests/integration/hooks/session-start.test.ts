@@ -126,3 +126,10 @@ describe("session-start hook", () => {
     expect(mock.ignoreRulePushes.length).toBe(2);
   });
 });
+
+it("uses the shared context endpoint and acknowledges its emitted snapshot",async()=>{
+  mock.contextControl.code=200;
+  const result=await runHook({...process.env,CLAUDE_PROJECT_DIR:projectDir,CLAUDE_PLUGIN_DATA:pluginDataDir},JSON.stringify({hook_event_name:"SessionStart",session_id:"claude-shared"}));
+  expect(JSON.parse(result.stdout).hookSpecificOutput.additionalContext).toContain("Shared reviewed guideline");
+  expect(mock.contextAcks[0]).toMatchObject({provider:"claude",sessionId:"claude-shared"});
+});

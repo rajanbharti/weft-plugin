@@ -5,6 +5,7 @@ export interface MockFixtures {
   recent?: unknown[];
   pinned?: unknown[];
   validToken?: string;
+  supportedProviders?: string[];
 }
 
 export interface StoppedMock {
@@ -13,6 +14,9 @@ export interface StoppedMock {
   createdEntries: any[];
   writeStatus: { code: number };
   rawEvents: any[];
+  contextCalls: any[];
+  contextAcks: any[];
+  contextControl: {code:number;ackCode:number;content:string};
   rawControl: { code: number; rejectNext: boolean; loseAck: boolean; capabilityCode: number };
   ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }>;
   stop(): Promise<void>;
@@ -27,6 +31,8 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
   const createdEntries: any[] = [];
   const writeStatus = { code: 200 };
   const rawEvents: any[] = [];
+  const contextCalls:any[]=[]; const contextAcks:any[]=[];
+  const contextControl={code:404,ackCode:200,content:"Shared reviewed guideline"};
   const rawControl = { code: 200, rejectNext: false, loseAck: false, capabilityCode: fixtures.rawActivity ? 200 : 404 };
   const ignoreRulePushes: Array<{ projectId: string; patterns: string[]; repoId?: string }> = [];
 
@@ -40,7 +46,7 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
 
   app.get("/v1/activity/capabilities", async (_, reply) => {
     if (rawControl.capabilityCode !== 200) return reply.code(rawControl.capabilityCode).send({ error: "unavailable" });
-    return { schemaVersions: [1], maxBatchEvents: 50, maxPayloadBytes: 64000 };
+    return { schemaVersions: [1], supportedProviders: fixtures.supportedProviders, maxBatchEvents: 50, maxPayloadBytes: 64000 };
   });
   app.post("/v1/activity/events", async (req: any, reply) => {
     if (rawControl.code !== 200) return reply.code(rawControl.code).send({ error: "unavailable" });
@@ -60,6 +66,15 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     return { schemaVersion: 1, acknowledgements };
   });
 
+  app.post("/v1/context",async(req,reply)=>{
+    contextCalls.push(req.body);
+    if(contextControl.code!==200)return reply.code(contextControl.code).send({error:"unavailable"});
+    return {receiptId:`ctx_${contextCalls.length}`,revision:contextCalls.length,mode:"snapshot",items:[{id:"mem_fixture",kind:"guideline",source:"reviewed",content:contextControl.content}],removedIds:[]};
+  });
+  app.post("/v1/context/:id/ack",async(req,reply)=>{
+    contextAcks.push(req.body);
+    return reply.code(contextControl.ackCode).send({ok:contextControl.ackCode===200});
+  });
   app.get("/healthz", async () => ({ ok: true }));
 
   app.get("/v1/entries/recent", async () => ({ entries: fixtures.recent ?? [] }));
@@ -101,7 +116,7 @@ export async function startMockService(fixtures: MockFixtures = {}): Promise<Sto
     ignoreRulePushes,
     createdEntries,
     writeStatus,
-    rawEvents,
+    rawEvents, contextCalls, contextAcks, contextControl,
     rawControl,
     async stop() { await app.close(); },
   };

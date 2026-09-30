@@ -830,14 +830,23 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+// src/lib/runtime.ts
+var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
+var provider = isCodex ? "codex" : "claude";
+var configDirectory = isCodex ? ".codex" : ".claude";
+var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
+
+// src/lib/data-dir.ts
 function pluginDataDir() {
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
   return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
 }
 
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join as join2 } from "node:path";
-var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
+var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
   return join2(projectDir, ...REPO_CONFIG_PATH);
@@ -879,7 +888,7 @@ var PluginError = class extends Error {
 };
 var TokenInvalidError = class extends PluginError {
   constructor() {
-    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
+    super("token_invalid", `Project token is invalid or has been rotated. Run ${linkCommand} with a fresh token.`);
   }
 };
 var NetworkError = class extends PluginError {
@@ -939,7 +948,7 @@ var import_ignore = __toESM(require_ignore(), 1);
 import { readFileSync as readFileSync2, existsSync as existsSync2 } from "node:fs";
 import { join as join4 } from "node:path";
 var PROJECT_FILE = [".projectmemoryignore"];
-var DEV_FILE = [".claude", "memoryignore"];
+var DEV_FILE = [configDirectory, "memoryignore"];
 function readPatterns(filePath) {
   if (!existsSync2(filePath)) return [];
   return readFileSync2(filePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));
@@ -1054,12 +1063,16 @@ var MemoryApiClient = class {
     this.token = token;
     assertAllowedServer(server);
     this.timeoutMs = opts.timeoutMs ?? 1e4;
+    this.deadline = opts.deadline;
   }
   timeoutMs;
+  deadline;
   async request(path, init = {}) {
     let res;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const remaining = Math.min(this.timeoutMs, (this.deadline ?? Infinity) - Date.now());
+    if (remaining <= 0) throw new NetworkError("upload budget exhausted");
+    const timeout = setTimeout(() => controller.abort(), remaining);
     try {
       res = await fetch(`${this.server}${path}`, {
         ...init,
@@ -1070,7 +1083,14 @@ var MemoryApiClient = class {
           "content-type": "application/json"
         }
       });
+      if (res.status === 401) throw new TokenInvalidError();
+      if (!res.ok) {
+        const body = await res.text();
+        throw new UnexpectedStatusError(res.status, body);
+      }
+      return await res.json();
     } catch (e) {
+      if (e instanceof TokenInvalidError || e instanceof UnexpectedStatusError) throw e;
       if (e.name === "AbortError") {
         throw new NetworkError(`timeout after ${this.timeoutMs / 1e3}s`);
       }
@@ -1078,12 +1098,12 @@ var MemoryApiClient = class {
     } finally {
       clearTimeout(timeout);
     }
-    if (res.status === 401) throw new TokenInvalidError();
-    if (!res.ok) {
-      const body = await res.text();
-      throw new UnexpectedStatusError(res.status, body);
-    }
-    return await res.json();
+  }
+  context(body) {
+    return this.request("/v1/context", { method: "POST", body: JSON.stringify(body) });
+  }
+  acknowledgeContext(id, body) {
+    return this.request(`/v1/context/${encodeURIComponent(id)}/ack`, { method: "POST", body: JSON.stringify(body) });
   }
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
@@ -1207,12 +1227,14 @@ function enqueueActivity(projectDir, linked, event) {
   const eventId = randomUUID();
   const timestamp = (/* @__PURE__ */ new Date()).toISOString();
   const matcher = loadIgnoreMatcher(projectDir);
-  const paths = referencedPaths(event.tool_input);
+  const patch = event.tool_name === "apply_patch" && event.tool_input && typeof event.tool_input === "object" ? event.tool_input.command : void 0;
+  const patchPaths = typeof patch === "string" ? [...patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)].map((m) => m[1].trim()) : [];
+  const paths = [...referencedPaths(event.tool_input), ...patchPaths];
   const excluded = paths.some((path) => {
     const local = repoRelativePath(projectDir, path);
     return local === ".." || local.startsWith("../") || isAbsolute2(local) || /(^|\/)(\.env[^/]*|secrets|credentials|\.ssh)(\/|$)/.test(local) || local !== "" && matcher.isIgnored(local);
   });
-  const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "");
+  const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "") || /mcp__.*weft.*__/.test(event.tool_name ?? "");
   const payload = excluded || memoryTool ? { omitted: excluded ? "excluded file payload" : "memory tool payload" } : safeValue({
     input: event.tool_input,
     output: event.tool_response,
@@ -1226,6 +1248,9 @@ function enqueueActivity(projectDir, linked, event) {
     eventId,
     timestamp,
     session: event.session_id ?? "unknown",
+    provider,
+    turnId: event.turn_id,
+    agentId: event.agent_id,
     repository: repoHash(projectDir),
     repositoryName: basename2(projectDir),
     event: label,
@@ -1239,13 +1264,14 @@ function enqueueActivity(projectDir, linked, event) {
   const actor = identity(projectDir);
   const body = {
     category: "active-work",
-    source: /^(Edit|Write|MultiEdit)$/.test(event.tool_name ?? "") ? "file-change" : "claude-proposed",
+    source: /^(Edit|Write|MultiEdit|apply_patch)$/.test(event.tool_name ?? "") ? "file-change" : "claude-proposed",
     status: "pending",
     content,
     authorEmail: actor.email,
     authorName: actor.name,
     tags: [
       "auto-capture",
+      `provider:${provider}`,
       `event:${label}`,
       `event-id:${eventId}`,
       `session:${event.session_id ?? "unknown"}`,
@@ -1264,7 +1290,7 @@ function enqueueActivity(projectDir, linked, event) {
     legacyEntry: body,
     event: {
       clientEventId: eventId,
-      provider: "claude",
+      provider,
       instanceId: instanceId(),
       sessionId: event.session_id ?? "unknown",
       eventType: EVENT_TYPES[label] ?? "tool.completed",
@@ -1298,7 +1324,7 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
       if (remaining <= 0) break;
       const path = join5(dir, file);
       const queued = JSON.parse(readFileSync3(path, "utf8"));
-      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5e3, remaining) });
+      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5e3, remaining), deadline });
       if (!("queueVersion" in queued)) {
         await client.createEntry(queued);
         unlinkSync(path);
@@ -1310,7 +1336,7 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
         try {
           const capabilities = await client.activityCapabilities();
           if (!capabilities.schemaVersions?.includes(1)) throw new Error("unsupported_activity_schema");
-          queued.transport = "raw";
+          queued.transport = queued.event.provider === "codex" && !capabilities.supportedProviders?.includes("codex") ? "legacy" : "raw";
         } catch (e) {
           if (!(e instanceof UnexpectedStatusError) || e.status !== 404) throw e;
           queued.transport = "legacy";

@@ -55,7 +55,7 @@ export function assertAllowedServer(server: string): void {
 
 export interface RawActivityEvent {
   clientEventId: string;
-  provider: "claude";
+  provider: "claude" | "codex";
   instanceId: string;
   repositoryId: string;
   sessionId: string;
@@ -73,20 +73,24 @@ export type ActivityAcknowledgement = { index: number; clientEventId: string | n
   { status: "rejected"; reason: string }
 );
 
-export interface ApiClientOptions { timeoutMs?: number }
+export interface ApiClientOptions { timeoutMs?: number; deadline?: number }
 
 export class MemoryApiClient {
   private readonly timeoutMs: number;
+  private readonly deadline?: number;
 
   constructor(private readonly server: string, private readonly token: string, opts: ApiClientOptions = {}) {
     assertAllowedServer(server);
     this.timeoutMs = opts.timeoutMs ?? 10_000;
+    this.deadline = opts.deadline;
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     let res: Response;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const remaining = Math.min(this.timeoutMs, (this.deadline ?? Infinity) - Date.now());
+    if (remaining <= 0) throw new NetworkError("upload budget exhausted");
+    const timeout = setTimeout(() => controller.abort(), remaining);
     try {
       res = await fetch(`${this.server}${path}`, {
         ...init,
@@ -97,7 +101,14 @@ export class MemoryApiClient {
           "content-type": "application/json",
         },
       });
+      if (res.status === 401) throw new TokenInvalidError();
+      if (!res.ok) {
+        const body = await res.text();
+        throw new UnexpectedStatusError(res.status, body);
+      }
+      return (await res.json()) as T;
     } catch (e) {
+      if (e instanceof TokenInvalidError || e instanceof UnexpectedStatusError) throw e;
       if ((e as Error).name === "AbortError") {
         throw new NetworkError(`timeout after ${this.timeoutMs / 1000}s`);
       }
@@ -105,16 +116,18 @@ export class MemoryApiClient {
     } finally {
       clearTimeout(timeout);
     }
-    if (res.status === 401) throw new TokenInvalidError();
-    if (!res.ok) {
-      const body = await res.text();
-      throw new UnexpectedStatusError(res.status, body);
-    }
-    return (await res.json()) as T;
+  }
+
+  context(body: Record<string, unknown>) {
+    return this.request<{receiptId:string;revision:number;mode:string;budget?:{omittedItems:number};items:Array<{id:string;kind:string;source:string;content:string}>;removedIds:string[]}>("/v1/context", {method:"POST",body:JSON.stringify(body)});
+  }
+
+  acknowledgeContext(id: string, body: Record<string, unknown>) {
+    return this.request(`/v1/context/${encodeURIComponent(id)}/ack`, {method:"POST",body:JSON.stringify(body)});
   }
 
   activityCapabilities() {
-    return this.request<{ schemaVersions: number[]; maxBatchEvents: number; maxPayloadBytes: number }>("/v1/activity/capabilities");
+    return this.request<{ schemaVersions: number[]; supportedProviders?: string[]; contextSchemaVersions?: number[]; maxBatchEvents: number; maxPayloadBytes: number }>("/v1/activity/capabilities");
   }
 
   ingestActivity(events: RawActivityEvent[]) {

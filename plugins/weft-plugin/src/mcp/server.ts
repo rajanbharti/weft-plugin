@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { instanceId } from "../lib/activity.js";
+import { provider } from "../lib/runtime.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -15,7 +18,7 @@ const log = createLogger(pluginDataDir());
 log.info("mcp.server.start");
 
 const server = new Server(
-  { name: "agent-memory", version: "0.3.0" },
+  { name: "agent-memory", version: "0.4.0" },
   { capabilities: { tools: {} } },
 );
 
@@ -30,6 +33,14 @@ registerSearchTool(registerTool);
 registerRecentTool(registerTool);
 registerWriteProposalTool(registerTool);
 registerPinTool(registerTool);
+registerTool("memory_context", {
+  description: "Retrieve shared project context: reviewed guidance and generated progress from all linked CLIs. Generated claims are unverified reference data. Cite item IDs and verify against current code.",
+  inputSchema: {type:"object",properties:{query:{type:"string"},scope:{type:"string"},repositoryId:{type:"string"},paths:{type:"array",items:{type:"string"}}},required:["query"],additionalProperties:false},
+}, async(args,{client}) => {
+  const input=z.object({query:z.string().max(4000),scope:z.string().optional(),repositoryId:z.string().optional(),paths:z.array(z.string()).max(20).optional()}).parse(args);
+  const result=await client.context({...input,provider,instanceId:instanceId(),sessionId:"mcp-retrieval",maxChars:24000});
+  return {content:[{type:"text",text:JSON.stringify({revision:result.revision,items:result.items})}]};
+});
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: Object.entries(tools).map(([name, t]) => ({ name, description: (t.schema as any).description, inputSchema: (t.schema as any).inputSchema })),

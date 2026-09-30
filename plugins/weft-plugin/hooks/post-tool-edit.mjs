@@ -16,7 +16,14 @@ function repoRelativePath(projectDir, path) {
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join as join2 } from "node:path";
+
+// src/lib/runtime.ts
+var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
+var configDirectory = isCodex ? ".codex" : ".claude";
+
+// src/lib/data-dir.ts
 function pluginDataDir() {
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
   return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data", "weft-plugin");
 }
 
@@ -26,7 +33,7 @@ import { readFileSync as readFileSync3 } from "node:fs";
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join as join3 } from "node:path";
-var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
+var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
   return join3(projectDir, ...REPO_CONFIG_PATH);

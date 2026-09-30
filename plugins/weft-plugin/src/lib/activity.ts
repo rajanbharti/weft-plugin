@@ -10,6 +10,7 @@ import { loadIgnoreMatcher } from "./ignore.js";
 import { applyChain } from "./redaction.js";
 import { MemoryApiClient, type CreateEntryInput, type RawActivityEvent } from "./api-client.js";
 import type { LinkedProject } from "./config.js";
+import { provider } from "./runtime.js";
 
 interface QueuedActivity {
   queueVersion: 2;
@@ -57,6 +58,8 @@ export interface ActivityEvent {
   last_assistant_message?: string;
   error?: unknown;
   reason?: string;
+  turn_id?: string;
+  agent_id?: string;
 }
 
 export function activityQueueDir(projectDir: string, linked: LinkedProject): string {
@@ -73,7 +76,7 @@ function identity(projectDir: string): { email: string; name?: string } {
   return { email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "unattributed@weft.invalid", name: get("user.name").slice(0, 120) || undefined };
 }
 
-function instanceId(): string {
+export function instanceId(): string {
   const dir = pluginDataDir();
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const file = join(dir, "instance-id");
@@ -103,7 +106,11 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
   const eventId = randomUUID();
   const timestamp = new Date().toISOString();
   const matcher = loadIgnoreMatcher(projectDir);
-  const paths = referencedPaths(event.tool_input);
+  const patch = event.tool_name === "apply_patch" && event.tool_input && typeof event.tool_input === "object"
+    ? (event.tool_input as { command?: unknown }).command : undefined;
+  const patchPaths = typeof patch === "string"
+    ? [...patch.matchAll(/^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm)].map(m => m[1].trim()) : [];
+  const paths = [...referencedPaths(event.tool_input), ...patchPaths];
   const excluded = paths.some((path) => {
     const local = repoRelativePath(projectDir, path);
     return local === ".." || local.startsWith("../") || isAbsolute(local)
@@ -111,13 +118,14 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
       || (local !== "" && matcher.isIgnored(local));
   });
   // Do not echo Weft retrieval results back into its own memory indefinitely.
-  const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "");
+  const memoryTool = /(^|__)memory(__|_)/.test(event.tool_name ?? "") || /mcp__.*weft.*__/.test(event.tool_name ?? "");
   const payload = excluded || memoryTool
     ? { omitted: excluded ? "excluded file payload" : "memory tool payload" }
     : safeValue({ input: event.tool_input, output: event.tool_response, prompt: event.prompt,
       response: event.last_assistant_message, error: event.error, reason: event.reason });
   const label = event.hook_event_name ?? "activity";
   const text = JSON.stringify({ eventId, timestamp, session: event.session_id ?? "unknown",
+    provider, turnId: event.turn_id, agentId: event.agent_id,
     repository: repoHash(projectDir), repositoryName: basename(projectDir), event: label, tool: event.tool_name, toolUseId: event.tool_use_id, payload }, null, 2);
   // Also scrub the actual linked credential, even if its format changes.
   const withoutToken = linked.token ? text.split(linked.token).join("[REDACTED:project-token]") : text;
@@ -125,9 +133,9 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
   const content = filtered.content.length > 16_000 ? filtered.content.slice(0, 15_960) + "\n[activity payload truncated]" : filtered.content;
   const actor = identity(projectDir);
   const body: CreateEntryInput = {
-    category: "active-work", source: /^(Edit|Write|MultiEdit)$/.test(event.tool_name ?? "") ? "file-change" : "claude-proposed",
+    category: "active-work", source: /^(Edit|Write|MultiEdit|apply_patch)$/.test(event.tool_name ?? "") ? "file-change" : "claude-proposed",
     status: "pending", content, authorEmail: actor.email, authorName: actor.name,
-    tags: ["auto-capture", `event:${label}`, `event-id:${eventId}`, `session:${event.session_id ?? "unknown"}`,
+    tags: ["auto-capture", `provider:${provider}`, `event:${label}`, `event-id:${eventId}`, `session:${event.session_id ?? "unknown"}`,
       `repo:${repoHash(projectDir)}`, `instance:${instanceId()}`, ...(event.tool_name ? [`tool:${event.tool_name}`] : [])],
     redactionApplied: filtered.flagged || withoutToken !== text || text.includes("[REDACTED]") || excluded || memoryTool,
   };
@@ -137,7 +145,7 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
   saveQueueRecord(file, {
     queueVersion: 2, repository: repositoryDescriptor(projectDir), legacyEntry: body,
     event: {
-      clientEventId: eventId, provider: "claude", instanceId: instanceId(), sessionId: event.session_id ?? "unknown",
+      clientEventId: eventId, provider, instanceId: instanceId(), sessionId: event.session_id ?? "unknown",
       eventType: EVENT_TYPES[label] ?? "tool.completed", occurredAt: timestamp, toolCallId: event.tool_use_id,
       actor: { email: actor.email, name: actor.name }, payload: { content },
       redactionApplied: body.redactionApplied ?? false, truncated: content !== filtered.content || filtered.content.includes("…[truncated]"),
@@ -164,7 +172,7 @@ export async function flushActivity(projectDir: string, linked: LinkedProject, b
       if (remaining <= 0) break;
       const path = join(dir, file);
       const queued: CreateEntryInput | QueuedActivity = JSON.parse(readFileSync(path, "utf8"));
-      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5000, remaining) });
+      const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5000, remaining), deadline });
       if (!("queueVersion" in queued)) {
         // Old outbox records keep their original endpoint; never reinterpret old
         // truncated entry content as a complete raw event.
@@ -178,7 +186,9 @@ export async function flushActivity(projectDir: string, linked: LinkedProject, b
         try {
           const capabilities = await client.activityCapabilities();
           if (!capabilities.schemaVersions?.includes(1)) throw new Error("unsupported_activity_schema");
-          queued.transport = "raw";
+          // Original v1 deployments accepted Claude only. Keep Codex identity
+          // honest and use pending entries until the server advertises support.
+          queued.transport = queued.event.provider === "codex" && !capabilities.supportedProviders?.includes("codex") ? "legacy" : "raw";
         } catch (e) {
           if (!(e instanceof UnexpectedStatusError) || e.status !== 404) throw e;
           queued.transport = "legacy";

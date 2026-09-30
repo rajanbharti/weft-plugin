@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import ignoreLib from "ignore";
+import { configDirectory } from "./runtime.js";
 
 export interface IgnoreMatcher {
   isIgnored(path: string): boolean;
@@ -8,7 +9,7 @@ export interface IgnoreMatcher {
 }
 
 const PROJECT_FILE = [".projectmemoryignore"] as const;
-const DEV_FILE = [".claude", "memoryignore"] as const;
+const DEV_FILE = [configDirectory, "memoryignore"] as const;
 
 function readPatterns(filePath: string): string[] {
   if (!existsSync(filePath)) return [];

@@ -827,7 +827,14 @@ var require_ignore = __commonJS({
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+// src/lib/runtime.ts
+var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
+var configDirectory = isCodex ? ".codex" : ".claude";
+
+// src/lib/data-dir.ts
 function pluginDataDir() {
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
   return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
 }
 
@@ -838,7 +845,7 @@ import { readFileSync as readFileSync4 } from "node:fs";
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join as join2 } from "node:path";
-var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
+var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
   return join2(projectDir, ...REPO_CONFIG_PATH);
@@ -990,7 +997,7 @@ var import_ignore = __toESM(require_ignore(), 1);
 import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
 import { join as join4 } from "node:path";
 var PROJECT_FILE = [".projectmemoryignore"];
-var DEV_FILE = [".claude", "memoryignore"];
+var DEV_FILE = [configDirectory, "memoryignore"];
 function readPatterns(filePath) {
   if (!existsSync3(filePath)) return [];
   return readFileSync3(filePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));

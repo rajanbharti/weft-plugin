@@ -1,7 +1,15 @@
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+// src/lib/runtime.ts
+var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
+var configDirectory = isCodex ? ".codex" : ".claude";
+var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
+
+// src/lib/data-dir.ts
 function pluginDataDir() {
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
   return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
 }
 
@@ -20,7 +28,7 @@ var PluginError = class extends Error {
 };
 var TokenInvalidError = class extends PluginError {
   constructor() {
-    super("token_invalid", "Project token is invalid or has been rotated. Run /weft-plugin:memory-link with a fresh token.");
+    super("token_invalid", `Project token is invalid or has been rotated. Run ${linkCommand} with a fresh token.`);
   }
 };
 var NetworkError = class extends PluginError {
@@ -59,12 +67,16 @@ var MemoryApiClient = class {
     this.token = token;
     assertAllowedServer(server);
     this.timeoutMs = opts.timeoutMs ?? 1e4;
+    this.deadline = opts.deadline;
   }
   timeoutMs;
+  deadline;
   async request(path, init = {}) {
     let res;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const remaining = Math.min(this.timeoutMs, (this.deadline ?? Infinity) - Date.now());
+    if (remaining <= 0) throw new NetworkError("upload budget exhausted");
+    const timeout = setTimeout(() => controller.abort(), remaining);
     try {
       res = await fetch(`${this.server}${path}`, {
         ...init,
@@ -75,7 +87,14 @@ var MemoryApiClient = class {
           "content-type": "application/json"
         }
       });
+      if (res.status === 401) throw new TokenInvalidError();
+      if (!res.ok) {
+        const body = await res.text();
+        throw new UnexpectedStatusError(res.status, body);
+      }
+      return await res.json();
     } catch (e) {
+      if (e instanceof TokenInvalidError || e instanceof UnexpectedStatusError) throw e;
       if (e.name === "AbortError") {
         throw new NetworkError(`timeout after ${this.timeoutMs / 1e3}s`);
       }
@@ -83,12 +102,12 @@ var MemoryApiClient = class {
     } finally {
       clearTimeout(timeout);
     }
-    if (res.status === 401) throw new TokenInvalidError();
-    if (!res.ok) {
-      const body = await res.text();
-      throw new UnexpectedStatusError(res.status, body);
-    }
-    return await res.json();
+  }
+  context(body) {
+    return this.request("/v1/context", { method: "POST", body: JSON.stringify(body) });
+  }
+  acknowledgeContext(id, body) {
+    return this.request(`/v1/context/${encodeURIComponent(id)}/ack`, { method: "POST", body: JSON.stringify(body) });
   }
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
@@ -144,7 +163,7 @@ var MemoryApiClient = class {
 // src/lib/config.ts
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join as join2 } from "node:path";
-var REPO_CONFIG_PATH = [".claude", "memory-config.json"];
+var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 function repoConfigFile(projectDir) {
   return join2(projectDir, ...REPO_CONFIG_PATH);
 }

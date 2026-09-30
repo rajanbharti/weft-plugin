@@ -1,3 +1,4 @@
+import { refreshContext } from "../lib/context.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { existsSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -45,6 +46,11 @@ async function main() {
     process.exit(0);
   }
 
+  let event = { hook_event_name: "SessionStart", session_id: "unknown" };
+  try { event = { ...event, ...JSON.parse(readFileSync(0, "utf8")) }; } catch { /* Legacy host. */ }
+  try {
+    if (await refreshContext(linked, event)) { await syncIgnoreRulesIfChanged(linked, projectDir); return; }
+  } catch { log.warn("hook.context.failed", { reason: "context_unavailable" }); process.stderr.write("[memory] priming skipped: context unavailable\n"); return; }
   const client = new MemoryApiClient(linked.server, linked.token);
   let pinned: Entry[] = [];
   let recent: Entry[] = [];

@@ -1,6 +1,7 @@
 import { pluginDataDir } from "./data-dir.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join } from "node:path";
+import { configDirectory } from "./runtime.js";
 
 export interface LinkedProject {
   projectId: string;
@@ -19,7 +20,7 @@ export interface RepoConfig {
   git_commit_min_message_chars?: number;
 }
 
-const REPO_CONFIG_PATH = [".claude", "memory-config.json"] as const;
+const REPO_CONFIG_PATH = [configDirectory, "memory-config.json"] as const;
 const DEFAULT_BUDGET = 3000;
 
 function repoConfigFile(projectDir: string): string {
