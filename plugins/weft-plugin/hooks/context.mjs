@@ -913,37 +913,6 @@ var InsecureServerError = class extends PluginError {
   }
 };
 
-// src/lib/activity.ts
-import { createHash, randomUUID } from "node:crypto";
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join3, isAbsolute, basename } from "node:path";
-
-// src/lib/ignore.ts
-var import_ignore = __toESM(require_ignore(), 1);
-
-// src/lib/redaction.ts
-var SECRET_PATTERNS = [
-  { name: "weft-token", re: /\b(?:pmt|sess|mlr)_[A-Za-z0-9_-]+/g },
-  { name: "aws-access-key", re: /\bAKIA[0-9A-Z]{16}\b/g },
-  { name: "github-token", re: /\bgh[posu]_[A-Za-z0-9]{36,251}\b/g },
-  { name: "api-key", re: /\bapi[_-]?key\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}["']?/gi },
-  { name: "bearer", re: /\bBearer\s+[A-Za-z0-9_\-\.]{20,}\b/g },
-  { name: "private-key", re: /-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----[\s\S]*?-----END [^-]+-----/g },
-  { name: "blob", re: /\b[A-Za-z0-9+/=]{49,}\b/g }
-];
-var secretRegexFilter = (input) => {
-  let content = input;
-  let flagged = false;
-  for (const { name, re } of SECRET_PATTERNS) {
-    const replaced = content.replace(re, () => {
-      flagged = true;
-      return `[REDACTED:${name}]`;
-    });
-    content = replaced;
-  }
-  return { content, flagged };
-};
-
 // src/lib/api-client.ts
 var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
 function assertAllowedServer(server) {
@@ -1008,6 +977,9 @@ var MemoryApiClient = class {
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
   }
+  syncGuidance(repositoryId, files) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
+  }
   ingestActivity(events) {
     return this.request("/v1/activity/events", {
       method: "POST",
@@ -1056,7 +1028,36 @@ var MemoryApiClient = class {
   }
 };
 
+// src/lib/ignore.ts
+var import_ignore = __toESM(require_ignore(), 1);
+
+// src/lib/redaction.ts
+var SECRET_PATTERNS = [
+  { name: "weft-token", re: /\b(?:pmt|sess|mlr)_[A-Za-z0-9_-]+/g },
+  { name: "aws-access-key", re: /\bAKIA[0-9A-Z]{16}\b/g },
+  { name: "github-token", re: /\bgh[posu]_[A-Za-z0-9]{36,251}\b/g },
+  { name: "api-key", re: /\bapi[_-]?key\s*[=:]\s*["']?[A-Za-z0-9_\-]{16,}["']?/gi },
+  { name: "bearer", re: /\bBearer\s+[A-Za-z0-9_\-\.]{20,}\b/g },
+  { name: "private-key", re: /-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----[\s\S]*?-----END [^-]+-----/g },
+  { name: "blob", re: /\b[A-Za-z0-9+/=]{49,}\b/g }
+];
+var secretRegexFilter = (input) => {
+  let content = input;
+  let flagged = false;
+  for (const { name, re } of SECRET_PATTERNS) {
+    const replaced = content.replace(re, () => {
+      flagged = true;
+      return `[REDACTED:${name}]`;
+    });
+    content = replaced;
+  }
+  return { content, flagged };
+};
+
 // src/lib/activity.ts
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join3, isAbsolute, basename } from "node:path";
 function instanceId() {
   const dir = pluginDataDir();
   mkdirSync2(dir, { recursive: true, mode: 448 });

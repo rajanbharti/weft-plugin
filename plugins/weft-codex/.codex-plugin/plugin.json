@@ -1,7 +1,7 @@
 {
   "name": "weft-codex",
-  "version": "0.1.0",
-  "description": "Shared project memory with automatic Codex CLI lifecycle capture, startup context, and memory tools.",
+  "version": "0.2.0",
+  "description": "Shared project memory from repository guidance and consolidated session activity, with editable memory and automatic syncing.",
   "author": {
     "name": "Rajan Bharti"
   },
@@ -12,7 +12,10 @@
     "longDescription": "Link repositories to Weft, retrieve approved project memory, and automatically capture Codex prompts, tool results, and completed turns.",
     "developerName": "Rajan Bharti",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": "Help me use Weft Codex."
   },
   "mcpServers": "./.mcp.json"

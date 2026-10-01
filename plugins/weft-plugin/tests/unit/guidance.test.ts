@@ -1,0 +1,41 @@
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, expect, it, vi } from "vitest";
+import { readGuidance, syncGuidance } from "../../src/lib/guidance.js";
+import { MemoryApiClient } from "../../src/lib/api-client.js";
+const roots: string[] = [];
+const temp = () => { const dir = mkdtempSync(join(tmpdir(), "weft-guidance-")); roots.push(dir); return dir; };
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+it("reads the two root guidance files and redacts project credentials", () => {
+ const dir = temp();
+ writeFileSync(join(dir, "CLAUDE.md"), "Use pnpm\npmt_secret_token");
+ writeFileSync(join(dir, "AGENTS.md"), "Run tests");
+ expect(readGuidance(dir, "pmt_secret_token")).toEqual([{ filename: "CLAUDE.md", content: "Use pnpm\n[REDACTED]" }, { filename: "AGENTS.md", content: "Run tests" }]);
+});
+it("does not upload ignored files, symlinks, or oversized files", () => {
+ const dir = temp(); const outside = temp();
+ writeFileSync(join(outside, "private"), "private guidance");
+ symlinkSync(join(outside, "private"), join(dir, "AGENTS.md"));
+ writeFileSync(join(dir, "CLAUDE.md"), "x".repeat(32001));
+ expect(readGuidance(dir, "secret").every((file) => file.content === null)).toBe(true);
+ writeFileSync(join(dir, "CLAUDE.md"), "private");
+ writeFileSync(join(dir, ".projectmemoryignore"), "CLAUDE.md\n");
+ expect(readGuidance(dir, "secret")[0].content).toBeNull();
+});
+it("retries failures and syncs changes and deletions", async () => {
+ const dir = temp();
+ vi.stubEnv("CLAUDE_PLUGIN_DATA", temp());
+ const capabilities = vi.spyOn(MemoryApiClient.prototype, "activityCapabilities").mockResolvedValue({ schemaVersions: [1], guidanceSchemaVersions: [1], maxBatchEvents: 20, maxPayloadBytes: 10000 });
+ vi.spyOn(MemoryApiClient.prototype, "linkRepository").mockResolvedValue({ repo: { id: "repo" } });
+ const upload = vi.spyOn(MemoryApiClient.prototype, "syncGuidance").mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ ok: true });
+ writeFileSync(join(dir, "AGENTS.md"), "Use pnpm");
+ const linked = { projectId: dir, server: "http://localhost", token: "secret", primingTokenBudget: 1000, captureFileEdits: false, gitCommitMinMessageChars: 12 };
+ const sync = () => syncGuidance(dir, linked, { remoteUrl: dir, label: "repo" }, Date.now() + 5000);
+ await expect(sync()).rejects.toThrow("offline");
+ await sync(); await sync();
+ expect(upload).toHaveBeenCalledTimes(2);
+ rmSync(join(dir, "AGENTS.md")); await sync();
+ expect(upload).toHaveBeenLastCalledWith("repo", [{filename: "CLAUDE.md", content: null}, {filename: "AGENTS.md", content: null}]);
+ expect(capabilities).toHaveBeenCalledTimes(3);
+});

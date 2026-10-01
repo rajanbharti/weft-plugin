@@ -1,3 +1,4 @@
+import { syncGuidance } from "./guidance.js";
 import { UnexpectedStatusError } from "./errors.js";
 import { repoRelativePath } from "./project-path.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -156,6 +157,9 @@ export function enqueueActivity(projectDir: string, linked: LinkedProject, event
 
 /** At-least-once delivery. Never delete a queued event before a successful response. */
 export async function flushActivity(projectDir: string, linked: LinkedProject, budgetMs = 20_000): Promise<number> {
+  const deadline = Date.now() + budgetMs;
+  try { await syncGuidance(projectDir, linked, repositoryDescriptor(projectDir), Math.min(deadline, Date.now() + 1800)); }
+  catch { process.stderr.write("[weft] Project guidance sync will retry on the next activity.\n"); }
   const dir = activityQueueDir(projectDir, linked);
   if (!existsSync(dir)) return 0;
   const lock = join(dir, ".upload-lock");
@@ -165,7 +169,6 @@ export async function flushActivity(projectDir: string, linked: LinkedProject, b
     closeSync(fd);
   } catch (e) { if ((e as NodeJS.ErrnoException).code === "EEXIST" || (e as NodeJS.ErrnoException).code === "ENOENT") return 0; throw e; }
   let sent = 0;
-  const deadline = Date.now() + budgetMs;
   try {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
       const remaining = deadline - Date.now();

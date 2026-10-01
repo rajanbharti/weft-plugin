@@ -127,7 +127,11 @@ export class MemoryApiClient {
   }
 
   activityCapabilities() {
-    return this.request<{ schemaVersions: number[]; supportedProviders?: string[]; contextSchemaVersions?: number[]; maxBatchEvents: number; maxPayloadBytes: number }>("/v1/activity/capabilities");
+    return this.request<{ schemaVersions: number[]; supportedProviders?: string[]; contextSchemaVersions?: number[]; guidanceSchemaVersions?: number[]; maxBatchEvents: number; maxPayloadBytes: number }>("/v1/activity/capabilities");
+  }
+
+  syncGuidance(repositoryId: string, files: Array<{ filename: string; content: string | null }>) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
   }
 
   ingestActivity(events: RawActivityEvent[]) {

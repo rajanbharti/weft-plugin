@@ -113,6 +113,9 @@ var MemoryApiClient = class {
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
   }
+  syncGuidance(repositoryId, files) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
+  }
   ingestActivity(events) {
     return this.request("/v1/activity/events", {
       method: "POST",

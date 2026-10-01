@@ -825,7 +825,7 @@ var require_ignore = __commonJS({
 });
 
 // src/hooks/activity.ts
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
 
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
@@ -877,6 +877,11 @@ async function loadLinkedProject(projectDir) {
   };
 }
 
+// src/lib/guidance.ts
+import { createHash } from "node:crypto";
+import { lstatSync, readFileSync as readFileSync3, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2, renameSync } from "node:fs";
+import { join as join4 } from "node:path";
+
 // src/lib/errors.ts
 var PluginError = class extends Error {
   code;
@@ -908,45 +913,125 @@ var InsecureServerError = class extends PluginError {
   }
 };
 
-// src/lib/project-path.ts
-import { realpathSync } from "node:fs";
-import { dirname, basename, join as join3, relative, isAbsolute } from "node:path";
-function canonicalPath(path) {
+// src/lib/api-client.ts
+var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+function assertAllowedServer(server) {
+  let parsed;
   try {
-    return realpathSync(path);
+    parsed = new URL(server);
   } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join3(canonicalPath(parent), basename(path));
+    return;
+  }
+  if (parsed.protocol === "http:" && !LOCAL_HOSTNAMES.has(parsed.hostname)) {
+    throw new InsecureServerError(server);
   }
 }
-function repoRelativePath(projectDir, path) {
-  return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
-}
-
-// src/lib/activity.ts
-import { createHash as createHash2, randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join5, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
-
-// src/lib/repo-hash.ts
-import { createHash } from "node:crypto";
-import { realpathSync as realpathSync2 } from "node:fs";
-function repoHash(absolutePath) {
-  const real = (() => {
+var MemoryApiClient = class {
+  constructor(server, token, opts = {}) {
+    this.server = server;
+    this.token = token;
+    assertAllowedServer(server);
+    this.timeoutMs = opts.timeoutMs ?? 1e4;
+    this.deadline = opts.deadline;
+  }
+  timeoutMs;
+  deadline;
+  async request(path, init = {}) {
+    let res;
+    const controller = new AbortController();
+    const remaining = Math.min(this.timeoutMs, (this.deadline ?? Infinity) - Date.now());
+    if (remaining <= 0) throw new NetworkError("upload budget exhausted");
+    const timeout = setTimeout(() => controller.abort(), remaining);
     try {
-      return realpathSync2(absolutePath);
-    } catch {
-      return absolutePath;
+      res = await fetch(`${this.server}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          ...init.headers ?? {},
+          "authorization": `Bearer ${this.token}`,
+          "content-type": "application/json"
+        }
+      });
+      if (res.status === 401) throw new TokenInvalidError();
+      if (!res.ok) {
+        const body = await res.text();
+        throw new UnexpectedStatusError(res.status, body);
+      }
+      return await res.json();
+    } catch (e) {
+      if (e instanceof TokenInvalidError || e instanceof UnexpectedStatusError) throw e;
+      if (e.name === "AbortError") {
+        throw new NetworkError(`timeout after ${this.timeoutMs / 1e3}s`);
+      }
+      throw new NetworkError(e.message);
+    } finally {
+      clearTimeout(timeout);
     }
-  })();
-  return createHash("sha256").update(real).digest("hex").slice(0, 16);
-}
+  }
+  context(body) {
+    return this.request("/v1/context", { method: "POST", body: JSON.stringify(body) });
+  }
+  acknowledgeContext(id, body) {
+    return this.request(`/v1/context/${encodeURIComponent(id)}/ack`, { method: "POST", body: JSON.stringify(body) });
+  }
+  activityCapabilities() {
+    return this.request("/v1/activity/capabilities");
+  }
+  syncGuidance(repositoryId, files) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
+  }
+  ingestActivity(events) {
+    return this.request("/v1/activity/events", {
+      method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, events })
+    });
+  }
+  linkRepository(projectId, remoteUrl, label) {
+    return this.request(`/v1/projects/${projectId}/link`, {
+      method: "POST",
+      body: JSON.stringify({ remoteUrl, label })
+    });
+  }
+  listRecent(params) {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.since) q.set("since", params.since);
+    const suffix = q.toString() ? `?${q.toString()}` : "";
+    return this.request(`/v1/entries/recent${suffix}`);
+  }
+  listPinned() {
+    return this.request("/v1/entries/pinned");
+  }
+  search(body) {
+    return this.request("/v1/entries/search", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+  createEntry(body) {
+    return this.request("/v1/entries", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+  pinEntry(entryId, pinned = true) {
+    return this.request(`/v1/entries/${entryId}/pin`, {
+      method: "POST",
+      body: JSON.stringify({ pinned })
+    });
+  }
+  pushIgnoreRules(projectId, patterns) {
+    return this.request(`/v1/projects/${projectId}/ignore-rules`, {
+      method: "POST",
+      body: JSON.stringify({ patterns })
+    });
+  }
+};
 
 // src/lib/ignore.ts
 var import_ignore = __toESM(require_ignore(), 1);
 import { readFileSync as readFileSync2, existsSync as existsSync2 } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join3 } from "node:path";
 var PROJECT_FILE = [".projectmemoryignore"];
 var DEV_FILE = [configDirectory, "memoryignore"];
 function readPatterns(filePath) {
@@ -965,8 +1050,8 @@ function expandNegations(patterns) {
   return expanded;
 }
 function loadIgnoreMatcher(repoDir) {
-  const projectPatterns = readPatterns(join4(repoDir, ...PROJECT_FILE));
-  const devPatterns = readPatterns(join4(repoDir, ...DEV_FILE));
+  const projectPatterns = readPatterns(join3(repoDir, ...PROJECT_FILE));
+  const devPatterns = readPatterns(join3(repoDir, ...DEV_FILE));
   const patterns = [...projectPatterns, ...devPatterns];
   const ig = (0, import_ignore.default)().add(expandNegations(patterns));
   return {
@@ -1044,117 +1129,83 @@ function applyChain(content, ctx) {
   return { content: cur, flagged, dropped: false };
 }
 
-// src/lib/api-client.ts
-var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
-function assertAllowedServer(server) {
-  let parsed;
+// src/lib/guidance.ts
+function readGuidance(projectDir, token) {
+  const matcher = loadIgnoreMatcher(projectDir);
+  return ["CLAUDE.md", "AGENTS.md"].map((filename) => {
+    const path = join4(projectDir, filename);
+    let content = null;
+    if (!matcher.isIgnored(filename)) {
+      try {
+        const stat = lstatSync(path);
+        if (stat.isFile() && !stat.isSymbolicLink() && stat.size <= 32e3) {
+          content = secretRegexFilter(readFileSync3(path, "utf8").split(token).join("[REDACTED]"), { ignoreMatcher: matcher, referencedPaths: [filename] }).content;
+        }
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+    return { filename, content };
+  });
+}
+async function syncGuidance(projectDir, linked, repository, deadline) {
+  const files = readGuidance(projectDir, linked.token);
+  const key = createHash("sha256").update(JSON.stringify([linked.server, linked.projectId, repository.remoteUrl])).digest("hex");
+  const hash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+  const dir = join4(pluginDataDir(), "guidance");
+  const path = join4(dir, `${key}.json`);
+  let prior = {};
   try {
-    parsed = new URL(server);
+    prior = JSON.parse(readFileSync3(path, "utf8"));
   } catch {
-    return;
   }
-  if (parsed.protocol === "http:" && !LOCAL_HOSTNAMES.has(parsed.hostname)) {
-    throw new InsecureServerError(server);
+  if (prior.hash === hash && Date.now() - (prior.syncedAt ?? 0) < 36e5) return;
+  if (!prior.hash && files.every((file) => file.content === null)) return;
+  const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: 1200, deadline });
+  const capabilities = await client.activityCapabilities();
+  if (!capabilities.guidanceSchemaVersions?.includes(1)) return;
+  const { repo } = await client.linkRepository(linked.projectId, repository.remoteUrl, repository.label);
+  await client.syncGuidance(repo.id, files);
+  mkdirSync2(dir, { recursive: true, mode: 448 });
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync2(temp, JSON.stringify({ hash, syncedAt: Date.now() }), { mode: 384 });
+  renameSync(temp, path);
+}
+
+// src/lib/project-path.ts
+import { realpathSync } from "node:fs";
+import { dirname, basename, join as join5, relative, isAbsolute } from "node:path";
+function canonicalPath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join5(canonicalPath(parent), basename(path));
   }
 }
-var MemoryApiClient = class {
-  constructor(server, token, opts = {}) {
-    this.server = server;
-    this.token = token;
-    assertAllowedServer(server);
-    this.timeoutMs = opts.timeoutMs ?? 1e4;
-    this.deadline = opts.deadline;
-  }
-  timeoutMs;
-  deadline;
-  async request(path, init = {}) {
-    let res;
-    const controller = new AbortController();
-    const remaining = Math.min(this.timeoutMs, (this.deadline ?? Infinity) - Date.now());
-    if (remaining <= 0) throw new NetworkError("upload budget exhausted");
-    const timeout = setTimeout(() => controller.abort(), remaining);
+function repoRelativePath(projectDir, path) {
+  return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
+}
+
+// src/lib/activity.ts
+import { createHash as createHash3, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3, renameSync as renameSync2, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join6, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
+
+// src/lib/repo-hash.ts
+import { createHash as createHash2 } from "node:crypto";
+import { realpathSync as realpathSync2 } from "node:fs";
+function repoHash(absolutePath) {
+  const real = (() => {
     try {
-      res = await fetch(`${this.server}${path}`, {
-        ...init,
-        signal: controller.signal,
-        headers: {
-          ...init.headers ?? {},
-          "authorization": `Bearer ${this.token}`,
-          "content-type": "application/json"
-        }
-      });
-      if (res.status === 401) throw new TokenInvalidError();
-      if (!res.ok) {
-        const body = await res.text();
-        throw new UnexpectedStatusError(res.status, body);
-      }
-      return await res.json();
-    } catch (e) {
-      if (e instanceof TokenInvalidError || e instanceof UnexpectedStatusError) throw e;
-      if (e.name === "AbortError") {
-        throw new NetworkError(`timeout after ${this.timeoutMs / 1e3}s`);
-      }
-      throw new NetworkError(e.message);
-    } finally {
-      clearTimeout(timeout);
+      return realpathSync2(absolutePath);
+    } catch {
+      return absolutePath;
     }
-  }
-  context(body) {
-    return this.request("/v1/context", { method: "POST", body: JSON.stringify(body) });
-  }
-  acknowledgeContext(id, body) {
-    return this.request(`/v1/context/${encodeURIComponent(id)}/ack`, { method: "POST", body: JSON.stringify(body) });
-  }
-  activityCapabilities() {
-    return this.request("/v1/activity/capabilities");
-  }
-  ingestActivity(events) {
-    return this.request("/v1/activity/events", {
-      method: "POST",
-      body: JSON.stringify({ schemaVersion: 1, events })
-    });
-  }
-  linkRepository(projectId, remoteUrl, label) {
-    return this.request(`/v1/projects/${projectId}/link`, {
-      method: "POST",
-      body: JSON.stringify({ remoteUrl, label })
-    });
-  }
-  listRecent(params) {
-    const q = new URLSearchParams();
-    if (params?.limit) q.set("limit", String(params.limit));
-    if (params?.since) q.set("since", params.since);
-    const suffix = q.toString() ? `?${q.toString()}` : "";
-    return this.request(`/v1/entries/recent${suffix}`);
-  }
-  listPinned() {
-    return this.request("/v1/entries/pinned");
-  }
-  search(body) {
-    return this.request("/v1/entries/search", {
-      method: "POST",
-      body: JSON.stringify(body)
-    });
-  }
-  createEntry(body) {
-    return this.request("/v1/entries", {
-      method: "POST",
-      body: JSON.stringify(body)
-    });
-  }
-  pinEntry(entryId, pinned = true) {
-    return this.request(`/v1/entries/${entryId}/pin`, {
-      method: "POST",
-      body: JSON.stringify({ pinned })
-    });
-  }
-  pushIgnoreRules(projectId, patterns) {
-    return this.request(`/v1/projects/${projectId}/ignore-rules`, {
-      method: "POST",
-      body: JSON.stringify({ patterns })
-    });
-  }
-};
+  })();
+  return createHash2("sha256").update(real).digest("hex").slice(0, 16);
+}
 
 // src/lib/activity.ts
 var EVENT_TYPES = {
@@ -1179,13 +1230,13 @@ function repositoryDescriptor(projectDir) {
   return { remoteUrl: remote || `local://${instanceId()}/${repoHash(projectDir)}`, label: basename2(projectDir).slice(0, 60) };
 }
 function saveQueueRecord(file, record) {
-  writeFileSync2(file + ".tmp", JSON.stringify(record), { mode: 384 });
-  renameSync(file + ".tmp", file);
+  writeFileSync3(file + ".tmp", JSON.stringify(record), { mode: 384 });
+  renameSync2(file + ".tmp", file);
 }
 function activityQueueDir(projectDir, linked) {
-  const target = createHash2("sha256").update(`${linked.server}
+  const target = createHash3("sha256").update(`${linked.server}
 ${linked.projectId}`).digest("hex").slice(0, 16);
-  return join5(pluginDataDir(), "outbox", target, repoHash(projectDir));
+  return join6(pluginDataDir(), "outbox", target, repoHash(projectDir));
 }
 function identity(projectDir) {
   const get = (key) => {
@@ -1200,14 +1251,14 @@ function identity(projectDir) {
 }
 function instanceId() {
   const dir = pluginDataDir();
-  mkdirSync2(dir, { recursive: true, mode: 448 });
-  const file = join5(dir, "instance-id");
+  mkdirSync3(dir, { recursive: true, mode: 448 });
+  const file = join6(dir, "instance-id");
   try {
-    writeFileSync2(file, randomUUID(), { flag: "wx", mode: 384 });
+    writeFileSync3(file, randomUUID(), { flag: "wx", mode: 384 });
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
   }
-  return readFileSync3(file, "utf8").trim();
+  return readFileSync4(file, "utf8").trim();
 }
 function safeValue(value) {
   if (Array.isArray(value)) return value.map(safeValue);
@@ -1282,8 +1333,8 @@ function enqueueActivity(projectDir, linked, event) {
     redactionApplied: filtered.flagged || withoutToken !== text || text.includes("[REDACTED]") || excluded || memoryTool
   };
   const dir = activityQueueDir(projectDir, linked);
-  mkdirSync2(dir, { recursive: true, mode: 448 });
-  const file = join5(dir, `${Date.now()}-${eventId}.json`);
+  mkdirSync3(dir, { recursive: true, mode: 448 });
+  const file = join6(dir, `${Date.now()}-${eventId}.json`);
   saveQueueRecord(file, {
     queueVersion: 2,
     repository: repositoryDescriptor(projectDir),
@@ -1305,9 +1356,15 @@ function enqueueActivity(projectDir, linked, event) {
   return eventId;
 }
 async function flushActivity(projectDir, linked, budgetMs = 2e4) {
+  const deadline = Date.now() + budgetMs;
+  try {
+    await syncGuidance(projectDir, linked, repositoryDescriptor(projectDir), Math.min(deadline, Date.now() + 1800));
+  } catch {
+    process.stderr.write("[weft] Project guidance sync will retry on the next activity.\n");
+  }
   const dir = activityQueueDir(projectDir, linked);
   if (!existsSync3(dir)) return 0;
-  const lock = join5(dir, ".upload-lock");
+  const lock = join6(dir, ".upload-lock");
   try {
     if (existsSync3(lock) && Date.now() - statSync(lock).mtimeMs > 12e4) unlinkSync(lock);
     const fd = openSync(lock, "wx", 384);
@@ -1317,13 +1374,12 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
     throw e;
   }
   let sent = 0;
-  const deadline = Date.now() + budgetMs;
   try {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
-      const path = join5(dir, file);
-      const queued = JSON.parse(readFileSync3(path, "utf8"));
+      const path = join6(dir, file);
+      const queued = JSON.parse(readFileSync4(path, "utf8"));
       const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: Math.min(5e3, remaining), deadline });
       if (!("queueVersion" in queued)) {
         await client.createEntry(queued);
@@ -1358,10 +1414,10 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
           throw new Error("invalid_activity_acknowledgement");
         }
         if (ack.status === "rejected") {
-          const quarantine = join5(dir, "quarantine");
-          mkdirSync2(quarantine, { recursive: true, mode: 448 });
-          writeFileSync2(join5(quarantine, file + ".reason"), ack.reason, { mode: 384 });
-          renameSync(path, join5(quarantine, file));
+          const quarantine = join6(dir, "quarantine");
+          mkdirSync3(quarantine, { recursive: true, mode: 448 });
+          writeFileSync3(join6(quarantine, file + ".reason"), ack.reason, { mode: 384 });
+          renameSync2(path, join6(quarantine, file));
           process.stderr.write("[weft] An activity event was rejected and moved to the local outbox quarantine.\n");
           continue;
         }
@@ -1377,8 +1433,8 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
 }
 
 // src/lib/logging.ts
-import { mkdirSync as mkdirSync3, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
-import { join as join6 } from "node:path";
+import { mkdirSync as mkdirSync4, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
+import { join as join7 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -1390,7 +1446,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join6(logsDir, e);
+    const full = join7(logsDir, e);
     try {
       if (statSync2(full).mtimeMs < cutoff) unlinkSync2(full);
     } catch {
@@ -1398,9 +1454,9 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join6(baseDir, "logs");
+  const logsDir = join7(baseDir, "logs");
   try {
-    mkdirSync3(logsDir, { recursive: true });
+    mkdirSync4(logsDir, { recursive: true });
   } catch {
   }
   pruneOldLogs(logsDir);
@@ -1408,7 +1464,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join6(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join7(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -1422,7 +1478,7 @@ function createLogger(baseDir) {
 
 // src/hooks/activity.ts
 async function main() {
-  const event = JSON.parse(readFileSync4(0, "utf8"));
+  const event = JSON.parse(readFileSync5(0, "utf8"));
   const projectDir = process.cwd();
   if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);

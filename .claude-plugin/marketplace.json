@@ -9,10 +9,10 @@
     {
       "name": "weft-plugin",
       "displayName": "Weft \u2014 project memory",
-      "description": "Shared project memory for Claude Code. Automatically uploads session activity to hosted Weft for platform review and retrieves approved team memory.",
+      "description": "Shared project memory from CLAUDE.md, AGENTS.md, and consolidated session activity.",
       "source": "./plugins/weft-plugin",
       "category": "productivity",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "author": {
         "name": "Rajan Bharti"
       },

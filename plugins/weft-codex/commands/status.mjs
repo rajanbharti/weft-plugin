@@ -972,6 +972,9 @@ var MemoryApiClient = class {
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
   }
+  syncGuidance(repositoryId, files) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
+  }
   ingestActivity(events) {
     return this.request("/v1/activity/events", {
       method: "POST",
@@ -1020,6 +1023,9 @@ var MemoryApiClient = class {
   }
 };
 
+// src/lib/ignore.ts
+var import_ignore = __toESM(require_ignore(), 1);
+
 // src/lib/activity.ts
 import { createHash as createHash2, randomUUID } from "node:crypto";
 import { join as join3, isAbsolute, basename } from "node:path";
@@ -1037,9 +1043,6 @@ function repoHash(absolutePath) {
   })();
   return createHash("sha256").update(real).digest("hex").slice(0, 16);
 }
-
-// src/lib/ignore.ts
-var import_ignore = __toESM(require_ignore(), 1);
 
 // src/lib/activity.ts
 function activityQueueDir(projectDir, linked) {

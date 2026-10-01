@@ -1,6 +1,6 @@
 {
   "name": "weft-plugin",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
   "type": "module",
   "main": "dist/mcp/server.js",
@@ -23,7 +23,7 @@
     "vitest": "^2.0.5",
     "esbuild": "^0.25.0"
   },
-  "description": "Shared project memory for Claude Code. Automatically uploads session activity to hosted Weft for platform review and retrieves approved team memory.",
+  "description": "Shared project memory from repository guidance and consolidated session activity, with editable memory and automatic syncing.",
   "license": "MIT",
   "repository": {
     "type": "git",

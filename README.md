@@ -156,3 +156,9 @@ fall back only on an explicit unsupported endpoint response. These changes are n
 a claim that the hosted service or published marketplace has already been updated.
 Run `npm run test:codex-cli` inside `plugins/weft-plugin` to exercise the actual
 Codex CLI with isolated local fixtures, including pre-model context injection.
+
+## Project memory compilation
+
+Claude 0.5.0 and Codex 0.2.0 sync root `CLAUDE.md` and `AGENTS.md` files during lifecycle activity, including session start. Sync respects `.projectmemoryignore`, skips symlinks and files larger than 32 KB, and redacts credentials. Changes and deletions propagate on the next successful sync; transient failures retry. Update installed plugins to receive this behavior.
+
+The service combines this guidance with session history into one editable project document. It consolidates decisions, current work, outcomes, and open questions instead of displaying an event ledger. Generated knowledge is shared automatically; no approval step is required. Human-edited document sections are preserved.

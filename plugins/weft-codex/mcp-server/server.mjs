@@ -12076,22 +12076,6 @@ var InsecureServerError = class extends PluginError {
   }
 };
 
-// src/lib/activity.ts
-import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join2, isAbsolute, basename } from "node:path";
-
-// src/lib/data-dir.ts
-import { homedir } from "node:os";
-import { join } from "node:path";
-function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
-}
-
-// src/lib/ignore.ts
-var import_ignore = __toESM(require_ignore(), 1);
-
 // src/lib/api-client.ts
 var LOCAL_HOSTNAMES = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
 function assertAllowedServer(server2) {
@@ -12156,6 +12140,9 @@ var MemoryApiClient = class {
   activityCapabilities() {
     return this.request("/v1/activity/capabilities");
   }
+  syncGuidance(repositoryId, files) {
+    return this.request("/v1/project-guidance", { method: "PUT", body: JSON.stringify({ repositoryId, files }) });
+  }
   ingestActivity(events) {
     return this.request("/v1/activity/events", {
       method: "POST",
@@ -12204,7 +12191,21 @@ var MemoryApiClient = class {
   }
 };
 
+// src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join } from "node:path";
+function pluginDataDir() {
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
+}
+
+// src/lib/ignore.ts
+var import_ignore = __toESM(require_ignore(), 1);
+
 // src/lib/activity.ts
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join2, isAbsolute, basename } from "node:path";
 function instanceId() {
   const dir = pluginDataDir();
   mkdirSync(dir, { recursive: true, mode: 448 });
