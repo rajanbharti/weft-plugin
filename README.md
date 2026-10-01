@@ -101,8 +101,11 @@ version only after these changes are published to the marketplace repository.
 MIT
 
 Plugin data uses `CLAUDE_PLUGIN_DATA` when provided. Otherwise it persists under
-`~/.claude/plugins/data/weft-plugin` (or the same subdirectory of
-`CLAUDE_CONFIG_DIR`). This works across plugin updates without extra setup.
+`~/.claude/plugins/data/weft-plugin-weft` (or the same subdirectory of
+`CLAUDE_CONFIG_DIR`), the directory Claude Code assigns the plugin's hooks. This works
+across plugin updates without extra setup. Up to 0.5.0, `/memory-link` could save
+tokens under `~/.claude/plugins/data/weft-plugin`, where hooks never looked, so
+activity was not captured; 0.5.1 still reads tokens from there, so no relinking is needed.
 
 ## Delivery and limits
 

@@ -36,7 +36,7 @@ it.each(["explicit", "fallback"])("the shipped link command uses hosted Weft wit
     const config = JSON.parse(readFileSync(join(dir, ".claude/memory-config.json"), "utf8"));
     expect(config).toEqual({ project_id: "proj_test", server: "https://service-production-a3ce.up.railway.app" });
     expect(JSON.stringify(config)).not.toContain("pmt_test");
-    const dataDir = storage === "explicit" ? join(dir, "private") : join(dir, "claude-config", "plugins", "data", "weft-plugin");
+    const dataDir = storage === "explicit" ? join(dir, "private") : join(dir, "claude-config", "plugins", "data", "weft-plugin-weft");
     const tokenFile = join(dataDir, "tokens.json");
     expect(JSON.parse(readFileSync(tokenFile, "utf8"))).toEqual({ proj_test: "pmt_test" });
     expect(statSync(tokenFile).mode & 0o777).toBe(0o600);

@@ -6,9 +6,12 @@ import { join } from "node:path";
 var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
 
 // src/lib/data-dir.ts
+function claudePluginsDataRoot() {
+  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+}
 function pluginDataDir() {
   if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data", "weft-plugin");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 
 // src/lib/logging.ts

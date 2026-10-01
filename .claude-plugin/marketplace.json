@@ -12,7 +12,7 @@
       "description": "Shared project memory from CLAUDE.md, AGENTS.md, and consolidated session activity.",
       "source": "./plugins/weft-plugin",
       "category": "productivity",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "author": {
         "name": "Rajan Bharti"
       },

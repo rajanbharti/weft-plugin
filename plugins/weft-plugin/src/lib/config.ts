@@ -1,4 +1,4 @@
-import { pluginDataDir } from "./data-dir.js";
+import { legacyPluginDataDir, pluginDataDir } from "./data-dir.js";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { configDirectory } from "./runtime.js";
@@ -32,6 +32,11 @@ function tokensFile(): string {
   return join(pluginDataDir(), "tokens.json");
 }
 
+function legacyTokensFile(): string | null {
+  const dir = legacyPluginDataDir();
+  return dir ? join(dir, "tokens.json") : null;
+}
+
 function readJson<T>(path: string): T | null {
   try {
     return JSON.parse(readFileSync(path, "utf8")) as T;
@@ -51,8 +56,9 @@ export async function loadLinkedProject(projectDir: string): Promise<LinkedProje
   const repo = readJson<RepoConfig>(repoConfigFile(projectDir));
   if (!repo || !repo.project_id || !repo.server) return null;
 
-  const tokens = readJson<Record<string, string>>(tokensFile()) ?? {};
-  const token = tokens[repo.project_id];
+  const legacy = legacyTokensFile();
+  const token = readJson<Record<string, string>>(tokensFile())?.[repo.project_id]
+    ?? (legacy ? readJson<Record<string, string>>(legacy)?.[repo.project_id] : undefined);
   if (!token) return null;
 
   return {
@@ -82,10 +88,12 @@ export async function saveToken(projectId: string, token: string): Promise<void>
 }
 
 export async function clearToken(projectId: string): Promise<void> {
-  const f = tokensFile();
-  const tokens = readJson<Record<string, string>>(f) ?? {};
-  if (projectId in tokens) {
-    delete tokens[projectId];
-    writeJson(f, tokens, 0o600);
+  for (const f of [tokensFile(), legacyTokensFile()]) {
+    if (!f) continue;
+    const tokens = readJson<Record<string, string>>(f) ?? {};
+    if (projectId in tokens) {
+      delete tokens[projectId];
+      writeJson(f, tokens, 0o600);
+    }
   }
 }

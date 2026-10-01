@@ -848,9 +848,17 @@ var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
 var configDirectory = isCodex ? ".codex" : ".claude";
 
 // src/lib/data-dir.ts
+function claudePluginsDataRoot() {
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
+}
 function pluginDataDir() {
   if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data", "weft-plugin");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
+}
+function legacyPluginDataDir() {
+  if (isCodex) return null;
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
+  return legacy === pluginDataDir() ? null : legacy;
 }
 
 // src/hooks/stop.ts
@@ -867,6 +875,10 @@ function repoConfigFile(projectDir) {
 function tokensFile() {
   return join3(pluginDataDir(), "tokens.json");
 }
+function legacyTokensFile() {
+  const dir = legacyPluginDataDir();
+  return dir ? join3(dir, "tokens.json") : null;
+}
 function readJson(path) {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
@@ -877,8 +889,8 @@ function readJson(path) {
 async function loadLinkedProject(projectDir) {
   const repo = readJson(repoConfigFile(projectDir));
   if (!repo || !repo.project_id || !repo.server) return null;
-  const tokens = readJson(tokensFile()) ?? {};
-  const token = tokens[repo.project_id];
+  const legacy = legacyTokensFile();
+  const token = readJson(tokensFile())?.[repo.project_id] ?? (legacy ? readJson(legacy)?.[repo.project_id] : void 0);
   if (!token) return null;
   return {
     projectId: repo.project_id,
