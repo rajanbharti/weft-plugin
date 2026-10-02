@@ -62,8 +62,9 @@ consistently for all three entrypoints. Host `PLUGIN_DATA` and Claude data varia
 are intentionally ignored because skill shell commands may not receive them.
 The token file is private (0600). Do not commit or share that directory.
 
-Repository lookup uses `process.cwd()` only. Run Codex from the directory you
-linked. A worktree or subdirectory must be linked separately. Startup and status
+Repository lookup starts at the working directory and uses the nearest linked
+ancestor, so subdirectories of a linked repository are covered. A separate worktree
+must be linked separately. Startup and status
 diagnostics identify missing configuration/token instead of silently claiming sync.
 
 Prompts, final responses and tool payloads are sent to the linked Weft service.

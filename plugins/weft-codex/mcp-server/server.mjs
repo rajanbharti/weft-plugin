@@ -670,13 +670,13 @@ var require_ignore = __commonJS({
         const rules = this._rules;
         const { length } = rules;
         const shortcut = this._basenameCount * 2 >= length;
-        const basename2 = shortcut ? basenameOf(path) : path;
+        const basename3 = shortcut ? basenameOf(path) : path;
         for (let index = 0; index < length; index++) {
           const rule = rules[index];
           const { negative } = rule;
           const skip = unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored;
           if (!skip && rule[mode].test(
-            shortcut && rule._basenameOnly ? basename2 : path
+            shortcut && rule._basenameOnly ? basename3 : path
           )) {
             ignored = !negative;
             unignored = negative;
@@ -3779,7 +3779,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3806,7 +3806,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -4636,7 +4636,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4669,49 +4669,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative = parse3(serialize(relative, options), options);
+        relative2 = parse3(serialize(relative2, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative2.scheme) {
+        target.scheme = relative2.scheme;
+        target.userinfo = relative2.userinfo;
+        target.host = relative2.host;
+        target.port = relative2.port;
+        target.path = removeDotSegments(relative2.path || "");
+        target.query = relative2.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
+          target.userinfo = relative2.userinfo;
+          target.host = relative2.host;
+          target.port = relative2.port;
+          target.path = removeDotSegments(relative2.path || "");
+          target.query = relative2.query;
         } else {
-          if (!relative.path) {
+          if (!relative2.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative2.query !== void 0) {
+              target.query = relative2.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative2.path[0] === "/") {
+              target.path = removeDotSegments(relative2.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative2.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative2.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative2.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -4719,7 +4719,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative2.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -5004,7 +5004,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -7992,6 +7992,32 @@ var require_dist = __commonJS({
     exports.default = formatsPlugin;
   }
 });
+
+// src/lib/project-path.ts
+import { existsSync, realpathSync } from "node:fs";
+
+// src/lib/runtime.ts
+var isCodex = true;
+var provider = isCodex ? "codex" : "claude";
+var configDirectory = isCodex ? ".codex" : ".claude";
+var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
+
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -12034,12 +12060,6 @@ var coerce = {
 };
 var NEVER = INVALID;
 
-// src/lib/runtime.ts
-var isCodex = true;
-var provider = isCodex ? "codex" : "claude";
-var configDirectory = isCodex ? ".codex" : ".claude";
-var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
-
 // src/lib/errors.ts
 var PluginError = class extends Error {
   code;
@@ -12193,17 +12213,17 @@ var MemoryApiClient = class {
 
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 function claudePluginsDataRoot() {
-  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
 function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 function legacyPluginDataDir() {
   if (isCodex) return null;
-  const legacy = join(claudePluginsDataRoot(), "weft-plugin");
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
   return legacy === pluginDataDir() ? null : legacy;
 }
 
@@ -12212,12 +12232,12 @@ var import_ignore = __toESM(require_ignore(), 1);
 
 // src/lib/activity.ts
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join2, isAbsolute, basename } from "node:path";
+import { existsSync as existsSync2, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join3, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 function instanceId() {
   const dir = pluginDataDir();
   mkdirSync(dir, { recursive: true, mode: 448 });
-  const file = join2(dir, "instance-id");
+  const file = join3(dir, "instance-id");
   try {
     writeFileSync(file, randomUUID(), { flag: "wx", mode: 384 });
   } catch (e) {
@@ -18072,7 +18092,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -18089,7 +18109,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -18167,7 +18187,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve(parseResult.data);
+            resolve2(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -18428,12 +18448,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve, interval);
+      const timeoutId = setTimeout(resolve2, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -19309,31 +19329,31 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve();
+        resolve2();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve2);
       }
     });
   }
 };
 
 // src/lib/config.ts
-import { readFileSync as readFileSync2, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
-import { join as join3 } from "node:path";
+import { readFileSync as readFileSync2, writeFileSync as writeFileSync2, mkdirSync as mkdirSync2, existsSync as existsSync3, rmSync, chmodSync } from "node:fs";
+import { join as join4 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
-  return join3(projectDir, ...REPO_CONFIG_PATH);
+  return join4(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join3(pluginDataDir(), "tokens.json");
+  return join4(pluginDataDir(), "tokens.json");
 }
 function legacyTokensFile() {
   const dir = legacyPluginDataDir();
-  return dir ? join3(dir, "tokens.json") : null;
+  return dir ? join4(dir, "tokens.json") : null;
 }
 function readJson(path) {
   try {
@@ -19360,7 +19380,7 @@ async function loadLinkedProject(projectDir) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync3, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -19372,7 +19392,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join4(logsDir, e);
+    const full = join5(logsDir, e);
     try {
       if (statSync2(full).mtimeMs < cutoff) unlinkSync2(full);
     } catch {
@@ -19380,7 +19400,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join4(baseDir, "logs");
+  const logsDir = join5(baseDir, "logs");
   try {
     mkdirSync3(logsDir, { recursive: true });
   } catch {
@@ -19390,7 +19410,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join4(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join5(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -19531,7 +19551,7 @@ function registerWriteProposalTool(reg) {
     },
     async (args, { client }) => {
       const input = InputSchema3.parse(args);
-      const projectDir = process.cwd();
+      const projectDir = resolveProjectDir();
       const identity = readGitIdentity(projectDir);
       if (!identity) {
         return {
@@ -19607,7 +19627,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   log.info("mcp.tool.call", { tool: req.params.name });
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   const linked = await loadLinkedProject(projectDir);
   if (!linked) {
     const out = {

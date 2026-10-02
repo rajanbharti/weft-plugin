@@ -666,13 +666,13 @@ var require_ignore = __commonJS({
         const rules = this._rules;
         const { length } = rules;
         const shortcut = this._basenameCount * 2 >= length;
-        const basename2 = shortcut ? basenameOf(path) : path;
+        const basename3 = shortcut ? basenameOf(path) : path;
         for (let index = 0; index < length; index++) {
           const rule = rules[index];
           const { negative } = rule;
           const skip = unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored;
           if (!skip && rule[mode].test(
-            shortcut && rule._basenameOnly ? basename2 : path
+            shortcut && rule._basenameOnly ? basename3 : path
           )) {
             ignored = !negative;
             unignored = negative;
@@ -824,16 +824,36 @@ var require_ignore = __commonJS({
   }
 });
 
-// src/lib/context.ts
-import { createHash as createHash2 } from "node:crypto";
-import { mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, renameSync as renameSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+// src/lib/project-path.ts
+import { existsSync, realpathSync } from "node:fs";
 
 // src/lib/runtime.ts
 var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
 var provider = isCodex ? "codex" : "claude";
 var configDirectory = isCodex ? ".codex" : ".claude";
 var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
+
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
+
+// src/lib/context.ts
+import { createHash as createHash2 } from "node:crypto";
+import { mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, renameSync as renameSync2 } from "node:fs";
+import { join as join4 } from "node:path";
 
 // src/lib/errors.ts
 var PluginError = class extends Error {
@@ -983,17 +1003,17 @@ var MemoryApiClient = class {
 
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 function claudePluginsDataRoot() {
-  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
 function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 function legacyPluginDataDir() {
   if (isCodex) return null;
-  const legacy = join(claudePluginsDataRoot(), "weft-plugin");
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
   return legacy === pluginDataDir() ? null : legacy;
 }
 
@@ -1025,12 +1045,12 @@ var secretRegexFilter = (input) => {
 
 // src/lib/activity.ts
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
-import { join as join2, isAbsolute, basename } from "node:path";
+import { existsSync as existsSync2, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { join as join3, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 function instanceId() {
   const dir = pluginDataDir();
   mkdirSync(dir, { recursive: true, mode: 448 });
-  const file = join2(dir, "instance-id");
+  const file = join3(dir, "instance-id");
   try {
     writeFileSync(file, randomUUID(), { flag: "wx", mode: 384 });
   } catch (e) {
@@ -1043,9 +1063,9 @@ function instanceId() {
 async function refreshContext(linked, event) {
   const who = { provider, instanceId: instanceId(), sessionId: event.session_id ?? "unknown" };
   const key = createHash2("sha256").update(JSON.stringify([linked.server, linked.projectId, who])).digest("hex");
-  const dir = join3(pluginDataDir(), "context");
+  const dir = join4(pluginDataDir(), "context");
   mkdirSync2(dir, { recursive: true, mode: 448 });
-  const file = join3(dir, `${key}.json`);
+  const file = join4(dir, `${key}.json`);
   let previousReceiptId;
   if (event.hook_event_name !== "SessionStart") {
     try {
@@ -1069,7 +1089,7 @@ async function refreshContext(linked, event) {
     ...context.removedIds.length ? [`Remove these items from the previous memory context: ${context.removedIds.join(", ")}`] : []
   ].join("\n\n");
   const output = context.mode === "delta" && !context.items.length && !context.removedIds.length ? {} : { hookSpecificOutput: { hookEventName: event.hook_event_name, additionalContext: text } };
-  await new Promise((resolve, reject) => process.stdout.write(JSON.stringify(output) + "\n", (e) => e ? reject(e) : resolve()));
+  await new Promise((resolve2, reject) => process.stdout.write(JSON.stringify(output) + "\n", (e) => e ? reject(e) : resolve2()));
   await client.acknowledgeContext(context.receiptId, who);
   const temp = `${file}.${process.pid}.tmp`;
   writeFileSync2(temp, JSON.stringify({ receiptId: context.receiptId }), { mode: 384 });
@@ -1078,23 +1098,23 @@ async function refreshContext(linked, event) {
 }
 
 // src/hooks/session-start.ts
-import { existsSync as existsSync3, statSync as statSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4, mkdirSync as mkdirSync5 } from "node:fs";
-import { join as join6 } from "node:path";
+import { existsSync as existsSync4, statSync as statSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4, mkdirSync as mkdirSync5 } from "node:fs";
+import { join as join7 } from "node:path";
 
 // src/lib/config.ts
-import { readFileSync as readFileSync3, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
-import { join as join4 } from "node:path";
+import { readFileSync as readFileSync3, writeFileSync as writeFileSync3, mkdirSync as mkdirSync3, existsSync as existsSync3, rmSync, chmodSync } from "node:fs";
+import { join as join5 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
-  return join4(projectDir, ...REPO_CONFIG_PATH);
+  return join5(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join4(pluginDataDir(), "tokens.json");
+  return join5(pluginDataDir(), "tokens.json");
 }
 function legacyTokensFile() {
   const dir = legacyPluginDataDir();
-  return dir ? join4(dir, "tokens.json") : null;
+  return dir ? join5(dir, "tokens.json") : null;
 }
 function readJson(path) {
   try {
@@ -1121,7 +1141,7 @@ async function loadLinkedProject(projectDir) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync4, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -1133,7 +1153,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join5(logsDir, e);
+    const full = join6(logsDir, e);
     try {
       if (statSync2(full).mtimeMs < cutoff) unlinkSync2(full);
     } catch {
@@ -1141,7 +1161,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join5(baseDir, "logs");
+  const logsDir = join6(baseDir, "logs");
   try {
     mkdirSync4(logsDir, { recursive: true });
   } catch {
@@ -1151,7 +1171,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join5(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join6(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -1167,11 +1187,11 @@ function createLogger(baseDir) {
 function ignoreSyncStatePath() {
   const d = pluginDataDir();
   mkdirSync5(d, { recursive: true });
-  return join6(d, "ignore-sync-state.json");
+  return join7(d, "ignore-sync-state.json");
 }
 async function syncIgnoreRulesIfChanged(linked, projectDir) {
-  const file = join6(projectDir, ".projectmemoryignore");
-  if (!existsSync3(file)) return;
+  const file = join7(projectDir, ".projectmemoryignore");
+  if (!existsSync4(file)) return;
   const stat = statSync3(file);
   const stateFile = ignoreSyncStatePath();
   let state = {};
@@ -1193,7 +1213,7 @@ async function syncIgnoreRulesIfChanged(linked, projectDir) {
   }
 }
 async function main() {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   const log = createLogger(pluginDataDir());
   log.info("hook.session-start.invoked", { projectDir });
   if (!projectDir) {

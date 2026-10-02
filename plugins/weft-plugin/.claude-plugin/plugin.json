@@ -1,6 +1,6 @@
 {
   "name": "weft-plugin",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Shared project memory from repository guidance and consolidated session activity, with editable memory and automatic syncing.",
   "author": {
     "name": "Rajan Bharti"

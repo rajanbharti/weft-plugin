@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { refreshContext } from "../lib/context.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { existsSync, statSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -34,7 +35,7 @@ async function syncIgnoreRulesIfChanged(linked: LinkedProject, projectDir: strin
 }
 
 async function main() {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   const log = createLogger(pluginDataDir());
   log.info("hook.session-start.invoked", { projectDir });
 

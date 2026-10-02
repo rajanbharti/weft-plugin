@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { readFileSync } from "node:fs";
 import { loadLinkedProject } from "../lib/config.js";
 import { enqueueActivity, flushActivity, type ActivityEvent } from "../lib/activity.js";
@@ -6,10 +7,13 @@ import { pluginDataDir } from "../lib/data-dir.js";
 
 async function main() {
   const event = JSON.parse(readFileSync(0, "utf8")) as ActivityEvent;
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);
-  if (!linked) return;
+  if (!linked) {
+    createLogger(pluginDataDir()).info("hook.activity.skipped", { reason: "not_linked", projectDir });
+    return;
+  }
   // SessionStart retries the outbox; other registered events are retained centrally.
   if (event.hook_event_name !== "SessionStart") enqueueActivity(projectDir, linked, event);
   await flushActivity(projectDir, linked);

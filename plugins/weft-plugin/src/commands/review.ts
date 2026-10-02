@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -159,7 +160,7 @@ export async function runReview(input: ReviewInput): Promise<ReviewSummary> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   log.info("command.memory-review.invoked");
   runReview({ projectDir }).then(() => process.exit(0)).catch((e: any) => {
     log.error("command.memory-review.error", { error: e?.message ?? String(e) });

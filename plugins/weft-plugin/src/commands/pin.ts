@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
@@ -25,7 +26,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.pin.invoked");
   const [, , entryId] = process.argv;
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   runPin({ projectDir, entryId }).then((r) => {
     log.info(r.ok ? "command.pin.ok" : "command.pin.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

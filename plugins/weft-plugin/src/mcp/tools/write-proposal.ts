@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../../lib/project-path.js";
 import { z } from "zod";
 import type { MemoryApiClient } from "../../lib/api-client.js";
 import type { LinkedProject } from "../../lib/config.js";
@@ -30,7 +31,7 @@ export function registerWriteProposalTool(
     },
     async (args: unknown, { client }: { client: MemoryApiClient; linked: LinkedProject }) => {
       const input = InputSchema.parse(args);
-      const projectDir = process.cwd();
+      const projectDir = resolveProjectDir();
       const identity = readGitIdentity(projectDir);
       if (!identity) {
         return {

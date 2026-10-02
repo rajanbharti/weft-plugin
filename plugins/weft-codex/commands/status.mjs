@@ -666,13 +666,13 @@ var require_ignore = __commonJS({
         const rules = this._rules;
         const { length } = rules;
         const shortcut = this._basenameCount * 2 >= length;
-        const basename2 = shortcut ? basenameOf(path) : path;
+        const basename3 = shortcut ? basenameOf(path) : path;
         for (let index = 0; index < length; index++) {
           const rule = rules[index];
           const { negative } = rule;
           const skip = unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored;
           if (!skip && rule[mode].test(
-            shortcut && rule._basenameOnly ? basename2 : path
+            shortcut && rule._basenameOnly ? basename3 : path
           )) {
             ignored = !negative;
             unignored = negative;
@@ -824,47 +824,65 @@ var require_ignore = __commonJS({
   }
 });
 
-// src/codex/status.ts
-import { existsSync as existsSync2, readdirSync } from "node:fs";
-import { join as join4 } from "node:path";
-
-// src/lib/data-dir.ts
-import { homedir } from "node:os";
-import { join } from "node:path";
+// src/lib/project-path.ts
+import { existsSync, realpathSync } from "node:fs";
 
 // src/lib/runtime.ts
 var isCodex = true;
 var configDirectory = isCodex ? ".codex" : ".claude";
 var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
 
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
+
+// src/codex/status.ts
+import { existsSync as existsSync3, readdirSync } from "node:fs";
+import { join as join5 } from "node:path";
+
 // src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join as join2 } from "node:path";
 function claudePluginsDataRoot() {
-  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
 function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 function legacyPluginDataDir() {
   if (isCodex) return null;
-  const legacy = join(claudePluginsDataRoot(), "weft-plugin");
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
   return legacy === pluginDataDir() ? null : legacy;
 }
 
 // src/lib/config.ts
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
+import { join as join3 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
-  return join2(projectDir, ...REPO_CONFIG_PATH);
+  return join3(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join2(pluginDataDir(), "tokens.json");
+  return join3(pluginDataDir(), "tokens.json");
 }
 function legacyTokensFile() {
   const dir = legacyPluginDataDir();
-  return dir ? join2(dir, "tokens.json") : null;
+  return dir ? join3(dir, "tokens.json") : null;
 }
 function readJson(path) {
   try {
@@ -1040,15 +1058,15 @@ var import_ignore = __toESM(require_ignore(), 1);
 
 // src/lib/activity.ts
 import { createHash as createHash2, randomUUID } from "node:crypto";
-import { join as join3, isAbsolute, basename } from "node:path";
+import { join as join4, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 
 // src/lib/repo-hash.ts
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { realpathSync as realpathSync2 } from "node:fs";
 function repoHash(absolutePath) {
   const real = (() => {
     try {
-      return realpathSync(absolutePath);
+      return realpathSync2(absolutePath);
     } catch {
       return absolutePath;
     }
@@ -1060,7 +1078,7 @@ function repoHash(absolutePath) {
 function activityQueueDir(projectDir, linked) {
   const target = createHash2("sha256").update(`${linked.server}
 ${linked.projectId}`).digest("hex").slice(0, 16);
-  return join3(pluginDataDir(), "outbox", target, repoHash(projectDir));
+  return join4(pluginDataDir(), "outbox", target, repoHash(projectDir));
 }
 
 // src/codex/diagnostics.ts
@@ -1074,19 +1092,19 @@ function safeError(error) {
 
 // src/codex/status.ts
 async function main() {
-  const linked = await loadLinkedProject(process.cwd());
+  const linked = await loadLinkedProject(resolveProjectDir());
   if (!linked) {
     console.log(JSON.stringify({ linked: false, reason: "missing_config_or_token" }));
     process.exitCode = 1;
     return;
   }
-  const queue = activityQueueDir(process.cwd(), linked);
-  const count = (dir) => existsSync2(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).length : 0;
+  const queue = activityQueueDir(resolveProjectDir(), linked);
+  const count = (dir) => existsSync3(dir) ? readdirSync(dir).filter((f) => f.endsWith(".json")).length : 0;
   const result = {
     linked: true,
     projectId: linked.projectId,
     queued: count(queue),
-    quarantined: count(join4(queue, "quarantine"))
+    quarantined: count(join5(queue, "quarantine"))
   };
   const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: 3e3 });
   for (const stage of ["authentication", "capabilities"]) {

@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadLinkedProject } from "../lib/config.js";
@@ -6,9 +7,9 @@ import { activityQueueDir } from "../lib/activity.js";
 import { safeError } from "./diagnostics.js";
 
 async function main() {
-  const linked = await loadLinkedProject(process.cwd());
+  const linked = await loadLinkedProject(resolveProjectDir());
   if (!linked) { console.log(JSON.stringify({ linked: false, reason: "missing_config_or_token" })); process.exitCode = 1; return; }
-  const queue = activityQueueDir(process.cwd(), linked);
+  const queue = activityQueueDir(resolveProjectDir(), linked);
   const count = (dir: string) => existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith(".json")).length : 0;
   const result: Record<string, unknown> = { linked: true, projectId: linked.projectId,
     queued: count(queue), quarantined: count(join(queue, "quarantine")) };

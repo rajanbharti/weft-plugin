@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { refreshContext } from "../lib/context.js";
 import { readFileSync } from "node:fs";
 import { loadLinkedProject } from "../lib/config.js";
@@ -15,7 +16,7 @@ async function main() {
   eventName = event.hook_event_name;
   if (!["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop", "SubagentStop", "SessionEnd"].includes(eventName ?? "")) return;
   stage = "link";
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   const linked = await loadLinkedProject(projectDir);
   if (!linked) {
     log.info("codex.hook.skipped", { event: eventName, reason: "missing_config_or_token" });

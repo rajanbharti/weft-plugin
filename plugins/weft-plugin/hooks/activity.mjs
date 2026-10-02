@@ -824,12 +824,8 @@ var require_ignore = __commonJS({
   }
 });
 
-// src/hooks/activity.ts
-import { readFileSync as readFileSync5 } from "node:fs";
-
-// src/lib/data-dir.ts
-import { homedir } from "node:os";
-import { join } from "node:path";
+// src/lib/project-path.ts
+import { existsSync, realpathSync } from "node:fs";
 
 // src/lib/runtime.ts
 var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
@@ -837,34 +833,67 @@ var provider = isCodex ? "codex" : "claude";
 var configDirectory = isCodex ? ".codex" : ".claude";
 var linkCommand = isCodex ? "$memory-link" : "/weft-plugin:memory-link";
 
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
+function canonicalPath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join(canonicalPath(parent), basename(path));
+  }
+}
+function repoRelativePath(projectDir, path) {
+  return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
+}
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
+
+// src/hooks/activity.ts
+import { readFileSync as readFileSync5 } from "node:fs";
+
 // src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join as join2 } from "node:path";
 function claudePluginsDataRoot() {
-  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
 function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 function legacyPluginDataDir() {
   if (isCodex) return null;
-  const legacy = join(claudePluginsDataRoot(), "weft-plugin");
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
   return legacy === pluginDataDir() ? null : legacy;
 }
 
 // src/lib/config.ts
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
+import { join as join3 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
 function repoConfigFile(projectDir) {
-  return join2(projectDir, ...REPO_CONFIG_PATH);
+  return join3(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join2(pluginDataDir(), "tokens.json");
+  return join3(pluginDataDir(), "tokens.json");
 }
 function legacyTokensFile() {
   const dir = legacyPluginDataDir();
-  return dir ? join2(dir, "tokens.json") : null;
+  return dir ? join3(dir, "tokens.json") : null;
 }
 function readJson(path) {
   try {
@@ -892,7 +921,7 @@ async function loadLinkedProject(projectDir) {
 // src/lib/guidance.ts
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync as readFileSync3, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2, renameSync } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 
 // src/lib/errors.ts
 var PluginError = class extends Error {
@@ -1042,12 +1071,12 @@ var MemoryApiClient = class {
 
 // src/lib/ignore.ts
 var import_ignore = __toESM(require_ignore(), 1);
-import { readFileSync as readFileSync2, existsSync as existsSync2 } from "node:fs";
-import { join as join3 } from "node:path";
+import { readFileSync as readFileSync2, existsSync as existsSync3 } from "node:fs";
+import { join as join4 } from "node:path";
 var PROJECT_FILE = [".projectmemoryignore"];
 var DEV_FILE = [configDirectory, "memoryignore"];
 function readPatterns(filePath) {
-  if (!existsSync2(filePath)) return [];
+  if (!existsSync3(filePath)) return [];
   return readFileSync2(filePath, "utf8").split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));
 }
 function expandNegations(patterns) {
@@ -1062,8 +1091,8 @@ function expandNegations(patterns) {
   return expanded;
 }
 function loadIgnoreMatcher(repoDir) {
-  const projectPatterns = readPatterns(join3(repoDir, ...PROJECT_FILE));
-  const devPatterns = readPatterns(join3(repoDir, ...DEV_FILE));
+  const projectPatterns = readPatterns(join4(repoDir, ...PROJECT_FILE));
+  const devPatterns = readPatterns(join4(repoDir, ...DEV_FILE));
   const patterns = [...projectPatterns, ...devPatterns];
   const ig = (0, import_ignore.default)().add(expandNegations(patterns));
   return {
@@ -1145,7 +1174,7 @@ function applyChain(content, ctx) {
 function readGuidance(projectDir, token) {
   const matcher = loadIgnoreMatcher(projectDir);
   return ["CLAUDE.md", "AGENTS.md"].map((filename) => {
-    const path = join4(projectDir, filename);
+    const path = join5(projectDir, filename);
     let content = null;
     if (!matcher.isIgnored(filename)) {
       try {
@@ -1164,8 +1193,8 @@ async function syncGuidance(projectDir, linked, repository, deadline) {
   const files = readGuidance(projectDir, linked.token);
   const key = createHash("sha256").update(JSON.stringify([linked.server, linked.projectId, repository.remoteUrl])).digest("hex");
   const hash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
-  const dir = join4(pluginDataDir(), "guidance");
-  const path = join4(dir, `${key}.json`);
+  const dir = join5(pluginDataDir(), "guidance");
+  const path = join5(dir, `${key}.json`);
   let prior = {};
   try {
     prior = JSON.parse(readFileSync3(path, "utf8"));
@@ -1184,25 +1213,10 @@ async function syncGuidance(projectDir, linked, repository, deadline) {
   renameSync(temp, path);
 }
 
-// src/lib/project-path.ts
-import { realpathSync } from "node:fs";
-import { dirname, basename, join as join5, relative, isAbsolute } from "node:path";
-function canonicalPath(path) {
-  try {
-    return realpathSync(path);
-  } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join5(canonicalPath(parent), basename(path));
-  }
-}
-function repoRelativePath(projectDir, path) {
-  return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
-}
-
 // src/lib/activity.ts
 import { createHash as createHash3, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3, renameSync as renameSync2, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3, renameSync as renameSync2, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { join as join6, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 
 // src/lib/repo-hash.ts
@@ -1375,10 +1389,10 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
     process.stderr.write("[weft] Project guidance sync will retry on the next activity.\n");
   }
   const dir = activityQueueDir(projectDir, linked);
-  if (!existsSync3(dir)) return 0;
+  if (!existsSync4(dir)) return 0;
   const lock = join6(dir, ".upload-lock");
   try {
-    if (existsSync3(lock) && Date.now() - statSync(lock).mtimeMs > 12e4) unlinkSync(lock);
+    if (existsSync4(lock) && Date.now() - statSync(lock).mtimeMs > 12e4) unlinkSync(lock);
     const fd = openSync(lock, "wx", 384);
     closeSync(fd);
   } catch (e) {
@@ -1491,10 +1505,13 @@ function createLogger(baseDir) {
 // src/hooks/activity.ts
 async function main() {
   const event = JSON.parse(readFileSync5(0, "utf8"));
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   if (!projectDir) return;
   const linked = await loadLinkedProject(projectDir);
-  if (!linked) return;
+  if (!linked) {
+    createLogger(pluginDataDir()).info("hook.activity.skipped", { reason: "not_linked", projectDir });
+    return;
+  }
   if (event.hook_event_name !== "SessionStart") enqueueActivity(projectDir, linked, event);
   await flushActivity(projectDir, linked);
 }

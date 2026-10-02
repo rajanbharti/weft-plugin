@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient, Entry } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
@@ -39,7 +40,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.recent.invoked");
   const limitArg = Number(process.argv[2]);
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   runRecent({ projectDir, limit: Number.isFinite(limitArg) ? limitArg : undefined }).then((r) => {
     log.info(r.ok ? "command.recent.ok" : "command.recent.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

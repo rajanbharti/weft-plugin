@@ -125,9 +125,11 @@ Hooks capture what Claude Code exposes, not external editor activity or the full
 transcript. Historical local buffers remain available through `/memory-review`.
 
 Memory tools reload the repository link on every call, so linking does not require
-a restart. Commands, hooks, and MCP tools use only `process.cwd()` to locate the repository.
-`CLAUDE_PROJECT_DIR` and hook payload paths are ignored. Launch Claude Code from
-the repository you linked; the plugin cache is never the working directory. Restart
+a restart. Commands, hooks, and MCP tools locate the repository from the directory the
+Claude Code session started in (`CLAUDE_PROJECT_DIR`) and otherwise from the working
+directory, using the nearest linked ancestor in either case. Changing directory in Bash
+or working in a subfolder of a linked repository therefore keeps capture on; hook payload
+paths are ignored. A hook that finds no link logs `reason: "not_linked"`. Restart
 Claude Code once after installing updates to load the new MCP configuration.
 
 ## Raw ingestion compatibility (v0.3.0)

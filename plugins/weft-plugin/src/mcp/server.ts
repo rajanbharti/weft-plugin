@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { z } from "zod";
 import { instanceId } from "../lib/activity.js";
 import { provider } from "../lib/runtime.js";
@@ -48,7 +49,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   log.info("mcp.tool.call", { tool: req.params.name });
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   const linked = await loadLinkedProject(projectDir);
   if (!linked) {
     const out = {

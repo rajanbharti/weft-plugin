@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -55,7 +56,7 @@ function listChangedPaths(projectDir: string, logger: ReturnType<typeof createLo
 }
 
 async function main() {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   if (!projectDir) { process.exit(0); }
 
   const linked = await loadLinkedProject(projectDir);

@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, it, expect } from "vitest";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,11 +13,11 @@ let data: string;
 let mock: Awaited<ReturnType<typeof startMockService>>;
 let linked: LinkedProject;
 const script = fileURLToPath(new URL("../../../hooks/activity.mjs", import.meta.url));
-function run(event: Record<string, unknown>, project = dir) {
+function run(event: Record<string, unknown>, project = dir, sessionRoot = "/incorrect-env-directory") {
   return new Promise<number | null>((resolve, reject) => {
     const child = spawn(process.execPath, [script], {
       cwd: project,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: "/incorrect-env-directory", CLAUDE_PLUGIN_DATA: data },
+      env: { ...process.env, CLAUDE_PROJECT_DIR: sessionRoot, CLAUDE_PLUGIN_DATA: data },
       stdio: ["pipe", "ignore", "ignore"],
     });
     child.on("error", reject);
@@ -108,5 +108,27 @@ describe("automatic activity sync", () => {
     rmSync(join(dir, ".claude/memory-config.json"));
     expect(await run({ hook_event_name: "UserPromptSubmit", prompt: "do not send" })).toBe(0);
     expect(mock.createdEntries).toHaveLength(0);
+  });
+  it("captures from the session root after the working directory moves elsewhere", async () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), "weft-activity-elsewhere-"));
+    try {
+      expect(await run({ hook_event_name: "UserPromptSubmit", prompt: "after cd" }, elsewhere, dir)).toBe(0);
+      expect(mock.createdEntries).toHaveLength(1);
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+  it("captures from a subdirectory of a linked repository", async () => {
+    const nested = join(dir, "packages", "service");
+    mkdirSync(nested, { recursive: true });
+    expect(await run({ hook_event_name: "UserPromptSubmit", prompt: "nested" }, nested)).toBe(0);
+    expect(mock.createdEntries).toHaveLength(1);
+    expect(queued()).toHaveLength(0);
+  });
+  it("logs why an unlinked repository is skipped", async () => {
+    rmSync(join(dir, ".claude/memory-config.json"));
+    expect(await run({ hook_event_name: "UserPromptSubmit", prompt: "do not send" })).toBe(0);
+    const logs = readdirSync(join(data, "logs")).map(f => readFileSync(join(data, "logs", f), "utf8")).join("");
+    expect(logs).toContain('"reason":"not_linked"');
   });
 });

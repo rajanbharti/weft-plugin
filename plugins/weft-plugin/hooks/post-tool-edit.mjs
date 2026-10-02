@@ -1,6 +1,12 @@
 // src/lib/project-path.ts
-import { realpathSync } from "node:fs";
-import { dirname, basename, join, relative, isAbsolute } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+
+// src/lib/runtime.ts
+var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
+var configDirectory = isCodex ? ".codex" : ".claude";
+
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
 function canonicalPath(path) {
   try {
     return realpathSync(path);
@@ -12,16 +18,24 @@ function canonicalPath(path) {
 function repoRelativePath(projectDir, path) {
   return isAbsolute(path) ? relative(canonicalPath(projectDir), canonicalPath(path)) : path;
 }
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
 
 // src/lib/data-dir.ts
 import { homedir } from "node:os";
 import { join as join2 } from "node:path";
-
-// src/lib/runtime.ts
-var isCodex = typeof __WEFT_CODEX__ !== "undefined" && __WEFT_CODEX__;
-var configDirectory = isCodex ? ".codex" : ".claude";
-
-// src/lib/data-dir.ts
 function claudePluginsDataRoot() {
   return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
@@ -39,7 +53,7 @@ function legacyPluginDataDir() {
 import { readFileSync as readFileSync3 } from "node:fs";
 
 // src/lib/config.ts
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
 import { join as join3 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 var DEFAULT_BUDGET = 3e3;
@@ -97,7 +111,7 @@ import {
   readFileSync as readFileSync2,
   writeFileSync as writeFileSync2,
   statSync,
-  existsSync as existsSync2,
+  existsSync as existsSync3,
   renameSync
 } from "node:fs";
 import { join as join4 } from "node:path";
@@ -111,7 +125,7 @@ async function appendRecord(repoHash2, record) {
 }
 async function trimIfTooLarge(repoHash2, maxBytes) {
   const path = bufferPathFor(repoHash2);
-  if (!existsSync2(path)) return false;
+  if (!existsSync3(path)) return false;
   const size = statSync(path).size;
   if (size <= maxBytes) return false;
   const buf = readFileSync2(path);
@@ -182,7 +196,7 @@ function locDelta(newStr, oldStr) {
   return Math.abs(newLines - oldLines) || newLines;
 }
 async function main() {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   if (!projectDir) {
     process.exit(0);
   }

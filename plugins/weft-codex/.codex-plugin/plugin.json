@@ -1,6 +1,6 @@
 {
   "name": "weft-codex",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Shared project memory from repository guidance and consolidated session activity, with editable memory and automatic syncing.",
   "author": {
     "name": "Rajan Bharti"

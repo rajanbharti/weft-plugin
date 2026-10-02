@@ -1,3 +1,4 @@
+import { resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { MemoryApiClient, Entry } from "../lib/api-client.js";
 import { loadLinkedProject } from "../lib/config.js";
@@ -35,7 +36,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.search.invoked");
   const query = process.argv.slice(2).join(" ");
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   runSearch({ projectDir, query }).then((r) => {
     log.info(r.ok ? "command.search.ok" : "command.search.error", { error: r.error });
     if (r.ok) { console.log(r.output); process.exit(0); }

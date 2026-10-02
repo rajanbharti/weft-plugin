@@ -1,4 +1,4 @@
-import { repoRelativePath } from "../lib/project-path.js";
+import { repoRelativePath, resolveProjectDir } from "../lib/project-path.js";
 import { pluginDataDir } from "../lib/data-dir.js";
 import { readFileSync } from "node:fs";
 import { loadLinkedProject } from "../lib/config.js";
@@ -32,7 +32,7 @@ function locDelta(newStr: string | undefined, oldStr: string | undefined): numbe
 }
 
 async function main() {
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   if (!projectDir) { process.exit(0); }
 
   const linked = await loadLinkedProject(projectDir);

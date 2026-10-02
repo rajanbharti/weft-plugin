@@ -1,42 +1,60 @@
-// src/lib/data-dir.ts
-import { homedir } from "node:os";
-import { join } from "node:path";
+// src/lib/project-path.ts
+import { existsSync, realpathSync } from "node:fs";
 
 // src/lib/runtime.ts
 var isCodex = true;
 var configDirectory = isCodex ? ".codex" : ".claude";
 
+// src/lib/project-path.ts
+import { dirname, basename, join, relative, isAbsolute, resolve } from "node:path";
+function findLinkedRoot(start) {
+  let dir = resolve(start);
+  for (; ; ) {
+    if (existsSync(join(dir, configDirectory, "memory-config.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveProjectDir() {
+  const sessionRoot = isCodex ? void 0 : process.env.CLAUDE_PROJECT_DIR?.trim();
+  const cwd = process.cwd();
+  return sessionRoot && findLinkedRoot(sessionRoot) || findLinkedRoot(cwd) || cwd;
+}
+
 // src/lib/data-dir.ts
+import { homedir } from "node:os";
+import { join as join2 } from "node:path";
 function claudePluginsDataRoot() {
-  return join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude"), "plugins", "data");
+  return join2(process.env.CLAUDE_CONFIG_DIR?.trim() || join2(homedir(), ".claude"), "plugins", "data");
 }
 function pluginDataDir() {
-  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join(process.env.CODEX_HOME?.trim() || join(homedir(), ".codex"), "plugins", "data", "weft-codex");
-  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join(claudePluginsDataRoot(), "weft-plugin-weft");
+  if (isCodex) return process.env.WEFT_CODEX_DATA_DIR?.trim() || join2(process.env.CODEX_HOME?.trim() || join2(homedir(), ".codex"), "plugins", "data", "weft-codex");
+  return process.env.CLAUDE_PLUGIN_DATA?.trim() || join2(claudePluginsDataRoot(), "weft-plugin-weft");
 }
 function legacyPluginDataDir() {
   if (isCodex) return null;
-  const legacy = join(claudePluginsDataRoot(), "weft-plugin");
+  const legacy = join2(claudePluginsDataRoot(), "weft-plugin");
   return legacy === pluginDataDir() ? null : legacy;
 }
 
 // src/commands/unlink.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
-import { join as join4 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync2 } from "node:fs";
+import { join as join5 } from "node:path";
 
 // src/lib/config.ts
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, chmodSync } from "node:fs";
-import { join as join2 } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync as existsSync2, rmSync, chmodSync } from "node:fs";
+import { join as join3 } from "node:path";
 var REPO_CONFIG_PATH = [configDirectory, "memory-config.json"];
 function repoConfigFile(projectDir) {
-  return join2(projectDir, ...REPO_CONFIG_PATH);
+  return join3(projectDir, ...REPO_CONFIG_PATH);
 }
 function tokensFile() {
-  return join2(pluginDataDir(), "tokens.json");
+  return join3(pluginDataDir(), "tokens.json");
 }
 function legacyTokensFile() {
   const dir = legacyPluginDataDir();
-  return dir ? join2(dir, "tokens.json") : null;
+  return dir ? join3(dir, "tokens.json") : null;
 }
 function readJson(path) {
   try {
@@ -53,7 +71,7 @@ function writeJson(path, data, mode) {
 }
 async function clearRepoConfig(projectDir) {
   const p = repoConfigFile(projectDir);
-  if (existsSync(p)) rmSync(p);
+  if (existsSync2(p)) rmSync(p);
 }
 async function clearToken(projectId) {
   for (const f of [tokensFile(), legacyTokensFile()]) {
@@ -68,7 +86,7 @@ async function clearToken(projectId) {
 
 // src/lib/logging.ts
 import { mkdirSync as mkdirSync2, appendFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
@@ -80,7 +98,7 @@ function pruneOldLogs(logsDir) {
   const cutoff = Date.now() - RETENTION_MS;
   for (const e of entries) {
     if (!e.endsWith(".log")) continue;
-    const full = join3(logsDir, e);
+    const full = join4(logsDir, e);
     try {
       if (statSync(full).mtimeMs < cutoff) unlinkSync(full);
     } catch {
@@ -88,7 +106,7 @@ function pruneOldLogs(logsDir) {
   }
 }
 function createLogger(baseDir) {
-  const logsDir = join3(baseDir, "logs");
+  const logsDir = join4(baseDir, "logs");
   try {
     mkdirSync2(logsDir, { recursive: true });
   } catch {
@@ -98,7 +116,7 @@ function createLogger(baseDir) {
     const line = JSON.stringify({ time: (/* @__PURE__ */ new Date()).toISOString(), level, event, ...fields ?? {} }) + "\n";
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     try {
-      appendFileSync(join3(logsDir, `${today}.log`), line, { encoding: "utf8" });
+      appendFileSync(join4(logsDir, `${today}.log`), line, { encoding: "utf8" });
     } catch {
     }
   }
@@ -112,8 +130,8 @@ function createLogger(baseDir) {
 
 // src/commands/unlink.ts
 async function runUnlink(input) {
-  const cfgPath = join4(input.projectDir, configDirectory, "memory-config.json");
-  if (!existsSync2(cfgPath)) {
+  const cfgPath = join5(input.projectDir, configDirectory, "memory-config.json");
+  if (!existsSync3(cfgPath)) {
     return { ok: false, error: "This repo is not linked to any project memory." };
   }
   let projectId;
@@ -128,7 +146,7 @@ async function runUnlink(input) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const log = createLogger(pluginDataDir());
   log.info("command.unlink.invoked");
-  const projectDir = process.cwd();
+  const projectDir = resolveProjectDir();
   runUnlink({ projectDir }).then((r) => {
     log.info(r.ok ? "command.unlink.ok" : "command.unlink.error", { error: r.error });
     if (r.ok) {
