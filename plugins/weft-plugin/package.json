@@ -1,6 +1,6 @@
 {
   "name": "weft-plugin",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": false,
   "type": "module",
   "main": "dist/mcp/server.js",

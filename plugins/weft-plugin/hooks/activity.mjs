@@ -920,7 +920,7 @@ async function loadLinkedProject(projectDir) {
 
 // src/lib/guidance.ts
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync as readFileSync3, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2, renameSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync as readFileSync3, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2, renameSync } from "node:fs";
 import { join as join5 } from "node:path";
 
 // src/lib/errors.ts
@@ -1171,28 +1171,77 @@ function applyChain(content, ctx) {
 }
 
 // src/lib/guidance.ts
-function readGuidance(projectDir, token) {
-  const matcher = loadIgnoreMatcher(projectDir);
-  return ["CLAUDE.md", "AGENTS.md"].map((filename) => {
-    const path = join5(projectDir, filename);
-    let content = null;
-    if (!matcher.isIgnored(filename)) {
-      try {
-        const stat = lstatSync(path);
-        if (stat.isFile() && !stat.isSymbolicLink() && stat.size <= 32e3) {
-          content = secretRegexFilter(readFileSync3(path, "utf8").split(token).join("[REDACTED]"), { ignoreMatcher: matcher, referencedPaths: [filename] }).content;
-        }
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
+var ROOT_FILES = ["CLAUDE.md", "AGENTS.md"];
+var AGENT_FILES = /* @__PURE__ */ new Set(["claude.md", "agents.md", "gemini.md", "copilot-instructions.md"]);
+var SKIPPED_DIRS = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "vendor", "target"]);
+var SEGMENT = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+var MAX_FILES = 40;
+var MAX_TOTAL_CHARS = 3e5;
+function readOne(projectDir, filename, token, matcher) {
+  if (matcher.isIgnored(filename)) return null;
+  try {
+    const stat = lstatSync(join5(projectDir, filename));
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 32e3) return null;
+    return secretRegexFilter(readFileSync3(join5(projectDir, filename), "utf8").split(token).join("[REDACTED]"), { ignoreMatcher: matcher, referencedPaths: [filename] }).content;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return null;
+  }
+}
+function markdownIn(projectDir, folder) {
+  let names;
+  try {
+    names = readdirSync(join5(projectDir, folder));
+  } catch {
+    return [];
+  }
+  return names.filter((name) => SEGMENT.test(name) && name.toLowerCase().endsWith(".md")).map((name) => folder ? `${folder}/${name}` : name);
+}
+function discover(projectDir, matcher) {
+  const found = markdownIn(projectDir, "");
+  let entries = [];
+  try {
+    entries = readdirSync(projectDir);
+  } catch {
+  }
+  for (const name of entries) {
+    if (!SEGMENT.test(name) || SKIPPED_DIRS.has(name) || matcher.isIgnored(`${name}/`)) continue;
+    try {
+      const stat = lstatSync(join5(projectDir, name));
+      if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
+    } catch {
+      continue;
     }
-    return { filename, content };
+    found.push(...markdownIn(projectDir, name));
+  }
+  found.push(".github/copilot-instructions.md");
+  const rank = (filename) => {
+    const base = filename.split("/").at(-1).toLowerCase();
+    return [AGENT_FILES.has(base) ? 0 : base === "readme.md" ? 1 : 2, filename.includes("/") ? 1 : 0];
+  };
+  return found.sort((a, b) => {
+    const [ra, rb] = [rank(a), rank(b)];
+    return ra[0] - rb[0] || ra[1] - rb[1] || (a < b ? -1 : a > b ? 1 : 0);
   });
 }
+function readGuidance(projectDir, token, version = 1) {
+  const matcher = loadIgnoreMatcher(projectDir);
+  if (version === 1) return ROOT_FILES.map((filename) => ({ filename, content: readOne(projectDir, filename, token, matcher) }));
+  const files = [];
+  let total = 0;
+  for (const filename of discover(projectDir, matcher)) {
+    if (files.length >= MAX_FILES) break;
+    const content = readOne(projectDir, filename, token, matcher);
+    if (content === null || total + content.length > MAX_TOTAL_CHARS) continue;
+    files.push({ filename, content });
+    total += content.length;
+  }
+  return files;
+}
 async function syncGuidance(projectDir, linked, repository, deadline) {
-  const files = readGuidance(projectDir, linked.token);
+  const found = readGuidance(projectDir, linked.token, 2);
   const key = createHash("sha256").update(JSON.stringify([linked.server, linked.projectId, repository.remoteUrl])).digest("hex");
-  const hash = createHash("sha256").update(JSON.stringify(files)).digest("hex");
+  const hash = createHash("sha256").update(JSON.stringify(found)).digest("hex");
   const dir = join5(pluginDataDir(), "guidance");
   const path = join5(dir, `${key}.json`);
   let prior = {};
@@ -1201,22 +1250,34 @@ async function syncGuidance(projectDir, linked, repository, deadline) {
   } catch {
   }
   if (prior.hash === hash && Date.now() - (prior.syncedAt ?? 0) < 36e5) return;
-  if (!prior.hash && files.every((file) => file.content === null)) return;
+  if (!prior.hash && found.length === 0) return;
   const client = new MemoryApiClient(linked.server, linked.token, { timeoutMs: 1200, deadline });
   const capabilities = await client.activityCapabilities();
-  if (!capabilities.guidanceSchemaVersions?.includes(1)) return;
+  const versions = capabilities.guidanceSchemaVersions ?? [];
+  if (!versions.includes(1) && !versions.includes(2)) return;
+  let files;
+  let filenames;
+  if (versions.includes(2)) {
+    const previous = prior.filenames ?? (prior.hash ? ROOT_FILES : []);
+    const current = new Set(found.map((file) => file.filename));
+    files = [...found, ...previous.filter((name) => !current.has(name)).map((filename) => ({ filename, content: null }))];
+    filenames = [...current];
+  } else {
+    files = readGuidance(projectDir, linked.token, 1);
+    filenames = ROOT_FILES;
+  }
   const { repo } = await client.linkRepository(linked.projectId, repository.remoteUrl, repository.label);
   await client.syncGuidance(repo.id, files);
   mkdirSync2(dir, { recursive: true, mode: 448 });
   const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync2(temp, JSON.stringify({ hash, syncedAt: Date.now() }), { mode: 384 });
+  writeFileSync2(temp, JSON.stringify({ hash, syncedAt: Date.now(), filenames }), { mode: 384 });
   renameSync(temp, path);
 }
 
 // src/lib/activity.ts
 import { createHash as createHash3, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3, renameSync as renameSync2, readdirSync, statSync, unlinkSync, openSync, closeSync } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync3, renameSync as renameSync2, readdirSync as readdirSync2, statSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { join as join6, isAbsolute as isAbsolute2, basename as basename2 } from "node:path";
 
 // src/lib/repo-hash.ts
@@ -1401,7 +1462,7 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
   }
   let sent = 0;
   try {
-    for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
+    for (const file of readdirSync2(dir).filter((name) => name.endsWith(".json")).sort()) {
       const remaining = deadline - Date.now();
       if (remaining <= 0) break;
       const path = join6(dir, file);
@@ -1459,13 +1520,13 @@ async function flushActivity(projectDir, linked, budgetMs = 2e4) {
 }
 
 // src/lib/logging.ts
-import { mkdirSync as mkdirSync4, appendFileSync, readdirSync as readdirSync2, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
+import { mkdirSync as mkdirSync4, appendFileSync, readdirSync as readdirSync3, statSync as statSync2, unlinkSync as unlinkSync2 } from "node:fs";
 import { join as join7 } from "node:path";
 var RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 function pruneOldLogs(logsDir) {
   let entries;
   try {
-    entries = readdirSync2(logsDir);
+    entries = readdirSync3(logsDir);
   } catch {
     return;
   }

@@ -166,4 +166,12 @@ Codex CLI with isolated local fixtures, including pre-model context injection.
 
 Claude 0.5.0 and Codex 0.2.0 sync root `CLAUDE.md` and `AGENTS.md` files during lifecycle activity, including session start. Sync respects `.projectmemoryignore`, skips symlinks and files larger than 32 KB, and redacts credentials. Changes and deletions propagate on the next successful sync; transient failures retry. Update installed plugins to receive this behavior.
 
+Claude 0.5.3 and Codex 0.2.2 also look one folder down: every Markdown file at the
+root and in each visible first-level folder (plus `.github/copilot-instructions.md`)
+is synced when the service supports guidance schema 2. Agent instruction files come
+first, then READMEs, then other docs; at most 40 files and 300 KB are sent.
+`node_modules`, `dist`, `build`, `coverage`, `vendor`, `target` and hidden folders
+are skipped. Removed files are deleted from the service on the next sync. Against an
+older service the plugins keep syncing only the root `CLAUDE.md` and `AGENTS.md`.
+
 The service combines this guidance with session history into one editable project document. It consolidates decisions, current work, outcomes, and open questions instead of displaying an event ledger. Generated knowledge is shared automatically; no approval step is required. Human-edited document sections are preserved.
